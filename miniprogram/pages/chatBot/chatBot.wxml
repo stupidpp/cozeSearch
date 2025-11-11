@@ -1,0 +1,258 @@
+<!--pages/chatBot/chatBot.wxml-->
+<view class="chat-container">
+  <!-- 顶部操作条 -->
+  <view class="topbar {{multiSelectMode ? 'multi-select' : ''}}">
+    <view wx:if="{{!multiSelectMode}}" class="topbar-left-group">
+      <view class="topbar-left" bindtap="toggleSidebar">☰</view>
+      <view class="topbar-right" bindtap="createNewConversation">＋</view>
+    </view>
+    <view wx:if="{{!multiSelectMode}}" class="topbar-title">{{currentTitle || '对话'}}</view>
+    <view wx:if="{{!multiSelectMode}}" class="topbar-placeholder"></view>
+    
+    <!-- 多选模式的工具栏 -->
+    <view wx:if="{{multiSelectMode}}" class="multi-select-toolbar">
+      <view class="multi-select-left" bindtap="exitMultiSelectMode">取消</view>
+      <view class="multi-select-title">已选择 {{selectedMessagesCount}} 项</view>
+      <view class="multi-select-right" bindtap="showSharePanel">分享</view>
+    </view>
+  </view>
+
+
+  <!-- 侧边栏与遮罩 -->
+  <view wx:if="{{sidebarOpen}}" class="sidebar-mask" bindtap="toggleSidebar"></view>
+  <view class="sidebar {{sidebarOpen ? 'open' : ''}}">
+    <scroll-view class="sidebar-list" scroll-y="true">
+      <!-- 联系我们置顶条目 -->
+      <view class="conv-item contact-us-item" bindtap="showContactUs">
+        <view class="conv-title">联系我们</view>
+        <view class="conv-sub">查看联系方式</view>
+        <view class="conv-time">置顶</view>
+      </view>
+
+      <!-- 收藏中心区域 -->
+      <view class="sidebar-section">
+        <view class="sidebar-section-header" bindtap="toggleFavoritesCollapse">
+          <text class="section-title">收藏中心</text>
+          <text class="collapse-icon {{favoritesCollapsed ? 'collapsed' : ''}}">▼</text>
+        </view>
+        <view wx:if="{{!favoritesCollapsed}}" class="section-content">
+          <view wx:if="{{favoritesList.length === 0}}" class="empty-favorites">
+            <text class="empty-text">暂无收藏教授</text>
+          </view>
+          <view wx:if="{{favoritesList.length > 0}}">
+            <block wx:for="{{favoritesList}}" wx:key="profId">
+              <view class="favorite-item">
+                <view class="favorite-name">{{item.name}}</view>
+                <view class="favorite-school">{{item.school}}</view>
+              </view>
+            </block>
+            <view class="view-all-favorites" bindtap="goToFavoritesPage">
+              <text class="view-all-text">查看全部收藏 →</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 历史会话区域 -->
+      <view class="sidebar-section">
+        <view class="sidebar-section-header" bindtap="toggleConversationsCollapse">
+          <text class="section-title">历史会话</text>
+          <text class="collapse-icon {{conversationsCollapsed ? 'collapsed' : ''}}">▼</text>
+        </view>
+        <view wx:if="{{!conversationsCollapsed}}" class="section-content">
+          <block wx:for="{{conversations}}" wx:key="conversationId">
+            <view class="conv-item {{item.conversationId === currentCid ? 'active' : ''}} {{item.showDelete ? 'deleting' : ''}}" 
+                  data-cid="{{item.conversationId}}" 
+                  bindtap="openConversation"
+                  bindlongpress="showDeleteOption">
+              <view class="conv-title">{{item.title || '新对话'}}</view>
+              <view class="conv-sub">{{item.lastMsg || '...'}}</view>
+              <view class="conv-time">{{item.displayTime}}</view>
+              <view wx:if="{{item.showDelete}}"
+                    class="delete-btn"
+                    data-cid="{{item.conversationId}}"
+                    bindtap="deleteConversation"
+                    catchtap="stopPropagation">－</view>
+            </view>
+          </block>
+        </view>
+      </view>
+    </scroll-view>
+    
+    <view class="sidebar-footer">
+      <button class="new-chat-btn" bindtap="createNewConversation">＋ 新对话</button>
+    </view>
+  </view>
+
+  <!-- 用户管理弹窗 -->
+  <view wx:if="{{showUserManager}}" class="user-manager-mask" bindtap="hideUserManager">
+    <view class="user-manager-modal" catchtap="stopPropagation">
+      <view class="user-manager-header">
+        <text class="user-manager-title">用户管理</text>
+        <text class="user-manager-close" bindtap="hideUserManager">×</text>
+      </view>
+      <view class="user-manager-content">
+        <view class="current-user-info">
+          <text class="current-user-label">当前用户：</text>
+          <text class="current-user-name">{{currentUserDisplayName || currentUserId}}</text>
+        </view>
+        
+        <view class="user-list-section">
+          <text class="section-title">切换用户</text>
+          <view class="user-list">
+            <view wx:for="{{userList}}" wx:key="id" 
+                  class="user-item {{item.isCurrent ? 'current' : ''}}"
+                  data-user-id="{{item.id}}"
+                  bindtap="switchUser">
+              <text class="user-name">{{item.displayName}}</text>
+              <text wx:if="{{item.isCurrent}}" class="current-badge">当前</text>
+            </view>
+          </view>
+        </view>
+        
+        <view class="user-actions">
+          <button class="action-btn primary" bindtap="createNewUser">创建新用户</button>
+          <button class="action-btn secondary" bindtap="deleteCurrentUser">删除当前用户</button>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 聊天消息区域 -->
+  <scroll-view class="chat-messages" scroll-y="true" scroll-top="{{scrollTop}}" scroll-into-view="{{scrollToView}}">
+    <!-- 欢迎消息 -->
+    <view wx:if="{{messages.length === 0}}" class="welcome-message">
+      <view class="welcome-header">
+        <text class="welcome-title" style="position: relative; left: 0rpx; top: 94rpx">你好！</text>
+        <text class="welcome-subtitle" style="position: relative; left: -11rpx; top: 96rpx">我是查询小助手</text>
+      </view>
+      <view class="welcome-desc-section">
+        <text class="welcome-desc" style="position: relative; left: 0rpx; top: 86rpx">告诉我你的研究方向或业务场景，我会从教师知识库中匹配3–5位最合适的教授，并给出匹配理由与联系方式。</text>
+      </view>
+      <view class="welcome-examples">
+        <text class="example-title" style="position: relative; left: 0rpx; top: 56rpx">你可以这样问：</text>
+        <view class="example-item" bindtap="onExampleTap" data-text="我想找计算机视觉/大模型方向的合作教授，偏工程落地" style="position: relative; left: 0rpx; top: 63rpx">我想找计算机视觉/大模型方向的合作教授，偏工程落地</view>
+        <view class="example-item" bindtap="onExampleTap" data-text="新能源电池热管理需要顾问，推荐几位" style="position: relative; left: 0rpx; top: 86rpx">新能源电池热管理需要顾问，推荐几位</view>
+        <view class="example-item" bindtap="onExampleTap" data-text="医学影像+多模态AI，有哪些合适的老师？" style="position: relative; left: 0rpx; top: 102rpx">医学影像+多模态AI，有哪些合适的老师？</view>
+      </view>
+    </view>
+
+    <!-- 消息列表 -->
+    <block wx:for="{{messages}}" wx:key="id">
+      <view class="message-item" id="msg-{{item.id}}">
+        <!-- 用户消息 -->
+        <view wx:if="{{item.type === 'user'}}" class="user-message">
+          <view class="message-content">{{item.content}}</view>
+        </view>
+        
+        <!-- 助手消息 -->
+        <view wx:elif="{{item.type === 'assistant'}}" class="assistant-message" data-msg-id="{{item.id}}" bindlongpress="onMessageLongPress">
+          <!-- 多选模式下的勾选框 -->
+          <view wx:if="{{multiSelectMode}}" class="message-checkbox" data-msg-id="{{item.id}}" bindtap="toggleMessageSelection">
+            <image wx:if="{{item.selected}}" class="checkbox-icon" src="/assets/icons/tick.svg" mode="aspectFit"/>
+            <view wx:else class="checkbox-empty"></view>
+          </view>
+          
+          <view class="message-content">{{item.content}}</view>
+          <!-- 教授卡片 -->
+          <view wx:if="{{item.cardData}}" class="card-container">
+            <custom-professor-list cardData="{{item.cardData}}" multiSelectMode="{{multiSelectMode}}" messageSelected="{{item.selected}}"></custom-professor-list>
+          </view>
+        </view>
+
+        <!-- 加载消息 -->
+        <view wx:elif="{{item.type === 'loading'}}" class="loading-message">
+          <view class="loading-content">
+            <!-- 进度条和百分比 -->
+            <view class="progress-container">
+              <view class="progress-info">
+                <text class="loading-text">{{item.content}}</text>
+                <text class="progress-percentage">{{item.progress || 0}}%</text>
+              </view>
+              <view class="progress-bar">
+                <view class="progress-fill" style="width: {{item.progress || 0}}%"></view>
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+    </block>
+  </scroll-view>
+
+  <!-- 输入区域 -->
+  <view class="input-area">
+    <view class="input-wrapper">
+      <textarea class="message-input" 
+             value="{{inputValue}}" 
+             placeholder="请描述您的科研需求..." 
+             bindinput="onInput"
+             focus="{{inputFocus}}"
+             disabled="{{sending}}"
+             auto-height="true"
+             maxlength="1000"
+             show-confirm-bar="{{false}}"
+             adjust-position="{{true}}"
+             cursor-spacing="{{20}}" />
+      <!-- 发送按钮 -->
+      <view class="send-btn {{inputValue.trim() && !sending ? '' : 'disabled'}}" 
+              bindtap="onSend">
+        <image class="send-icon" src="../../assets/icons/send.svg" mode="aspectFit"/>
+      </view>
+    </view>
+  </view>
+
+  <!-- 分享操作面板 -->
+  <view wx:if="{{showSharePanel}}" class="share-panel-mask" bindtap="hideSharePanel">
+    <view class="share-panel" catchtap="stopPropagation">
+      <view class="share-panel-header">分享选中内容</view>
+      <view class="share-actions">
+        <view class="share-action-item" bindtap="shareToWechat">
+          <image class="share-action-icon" src="/assets/icons/wechat-share.svg" mode="aspectFit"/>
+          <text class="share-action-text">微信分享</text>
+        </view>
+        <view class="share-action-item" bindtap="shareAsLongImage">
+          <image class="share-action-icon" src="/assets/icons/share-long-image.svg" mode="aspectFit"/>
+          <text class="share-action-text">截图分享</text>
+        </view>
+        <view class="share-action-item" bindtap="copyShareLink">
+          <image class="share-action-icon" src="/assets/icons/copy-link.svg" mode="aspectFit"/>
+          <text class="share-action-text">复制链接</text>
+        </view>
+      </view>
+      <view class="share-tips">
+        <text class="tips-text">💡 提示：截图分享可获得最佳视觉效果</text>
+      </view>
+      <view class="share-panel-cancel" bindtap="exitMultiSelectMode">取消</view>
+    </view>
+  </view>
+
+  <!-- 联系我们弹窗 -->
+  <view wx:if="{{showContactUs}}" class="contact-us-mask" bindtap="hideContactUs">
+    <view class="contact-us-modal" catchtap="stopPropagation">
+      <view class="contact-us-header">
+        <text class="contact-us-title">联系我们</text>
+        <text class="contact-us-close" bindtap="hideContactUs">×</text>
+      </view>
+      <view class="contact-us-content">
+        <!-- 图片容器：增加背景与最小高度以便可视化 -->
+        <view class="contact-us-image-wrap">
+          <image wx:if="{{contactImageLoadState !== 'error'}}" 
+                 class="contact-us-image" 
+                 src="{{contactImageSrc}}" 
+                 mode="widthFix" 
+                 bindload="onContactImageLoad" 
+                 binderror="onContactImageError" />
+          <view wx:if="{{contactImageLoadState === 'loading'}}" class="contact-us-loading">
+            <text>图片加载中…</text>
+          </view>
+        </view>
+
+        <!-- debug 信息已移除 -->
+
+        <view wx:if="{{contactImageLoadState === 'error'}}" class="contact-us-placeholder">
+          <text>无法加载图片，联系方式请访问官网或稍后重试。</text>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

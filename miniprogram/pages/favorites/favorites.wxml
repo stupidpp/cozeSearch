@@ -1,0 +1,99 @@
+<!--pages/favorites/favorites.wxml-->
+<view class="favorites-container">
+  <!-- 搜索和筛选区域 -->
+  <view class="search-section">
+    <view class="search-box">
+      <view class="search-input-wrapper">
+        <input class="search-input" placeholder="搜索姓名、学院、方向" confirm-type="search" bindconfirm="onSearch" bindinput="onInput" value="{{keyword}}"/>
+        <button class="search-btn" bindtap="onSearch" style="width: 107rpx; display: flex; box-sizing: border-box; left: 581rpx; top: 37rpx">搜索</button>
+      </view>
+    </view>
+    <scroll-view class="tag-scroll" scroll-x>
+      <view class="tag {{activeTag==='全部'?'active':''}}" data-tag="全部" bindtap="onTagTap">全部</view>
+      <block wx:for="{{allTags}}" wx:key="item">
+        <view class="tag {{activeTag===item?'active':''}}" data-tag="{{item}}" bindtap="onTagTap">{{item}}</view>
+      </block>
+    </scroll-view>
+    <view class="sort-bar">
+      <view class="sort-item {{sortBy==='time'?'active':''}}" data-key="time" bindtap="onSort">按时间</view>
+      <view class="sort-item {{sortBy==='name'?'active':''}}" data-key="name" bindtap="onSort">按姓名</view>
+    </view>
+  </view>
+
+  <!-- 加载状态 -->
+  <view wx:if="{{loading}}" class="loading-container">
+    <text class="loading-text">加载中...</text>
+  </view>
+
+  <!-- 空状态 -->
+  <view wx:elif="{{list.length === 0 && !loading}}" class="empty-container">
+    <image class="empty-icon" src="/assets/icons/star.svg" mode="aspectFit"/>
+    <text class="empty-text">{{keyword || activeTag !== '全部' ? '没有找到匹配的教授' : '还没有收藏的教授'}}</text>
+    <text class="empty-desc">{{keyword || activeTag !== '全部' ? '试试调整搜索条件' : '在聊天中点击教授卡片的收藏按钮即可收藏'}}</text>
+  </view>
+
+  <!-- 收藏列表 -->
+  <scroll-view wx:else class="favorites-list" scroll-y="true">
+    <block wx:for="{{list}}" wx:for-item="prof" wx:key="profId">
+      <view class="prof-card">
+        <!-- 教授基本信息 -->
+        <view class="prof-header">
+          <text class="prof-name">{{prof.name}}</text>
+          <view class="prof-actions">
+            <view class="action-btn share-btn" data-prof="{{prof}}" bindtap="shareProfessor">
+              <image class="action-icon" src="/assets/icons/share.svg" mode="aspectFit"/>
+            </view>
+            <view class="action-btn remove-btn" data-id="{{prof.profId}}" bindtap="removeFavorite">
+              <text class="remove-text">×</text>
+            </view>
+          </view>
+        </view>
+
+        <!-- 学院信息 -->
+        <view class="prof-school">{{prof.school}}</view>
+
+        <!-- 研究领域 -->
+        <view wx:if="{{prof.areas && prof.areas.length}}" class="research-areas">
+          <block wx:for="{{prof.areas}}" wx:for-item="area" wx:key="*this">
+            <text class="area-tag">{{area}}</text>
+          </block>
+        </view>
+
+        <!-- 匹配度 -->
+        <view wx:if="{{prof.displayScore >= 0}}" class="match-score">
+          <text class="score-text">匹配度 {{prof.displayScore}}%</text>
+        </view>
+
+        <!-- 联系信息 -->
+        <view class="contact-info">
+          <view wx:if="{{prof.email}}" class="contact-item" data-text="{{prof.email}}" bindtap="copyContact">
+            <text class="contact-label">邮箱：</text>
+            <text class="contact-value">{{prof.email}}</text>
+          </view>
+          <view wx:if="{{prof.office}}" class="contact-item">
+            <text class="contact-label">办公地点：</text>
+            <text class="contact-value">{{prof.office}}</text>
+          </view>
+          <view wx:if="{{prof.phone}}" class="contact-item" data-text="{{prof.phone}}" bindtap="copyContact">
+            <text class="contact-label">电话：</text>
+            <text class="contact-value">{{prof.phone}}</text>
+          </view>
+          <view wx:if="{{prof.homepages && prof.homepages.length}}" class="contact-item">
+            <text class="contact-label">主页：</text>
+            <block wx:for="{{prof.homepages}}" wx:for-item="homepage" wx:key="*this">
+              <text class="contact-value homepage-link" data-text="{{homepage}}" bindtap="copyContact">{{homepage}}</text>
+            </block>
+          </view>
+        </view>
+
+        <!-- 研究成果 -->
+        <view wx:if="{{prof.highlights && prof.highlights.length}}" class="highlights">
+          <view class="highlights-title">研究特色</view>
+          <block wx:for="{{prof.highlights}}" wx:for-item="highlight" wx:key="*this">
+            <view class="highlight-item">• {{highlight}}</view>
+          </block>
+        </view>
+      </view>
+    </block>
+  </scroll-view>
+</view>

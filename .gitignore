@@ -1,0 +1,116 @@
+# Node dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Logs
+logs/
+*.log
+*.tlog
+
+# OS generated files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor/IDE
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.old
+*.orig
+*.rej
+
+# Build output
+dist/
+build/
+out/
+coverage/
+
+# Environment and secret files
+.env
+.env.*
+*.local
+project.private.config.json
+
+# Package manager lockfiles (keep, but ignore shrinkwrap if present)
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+npm-shrinkwrap.json
+
+# Cloud functions
+cloudfunctions/**/node_modules/
+cloudfunctions/**/logs/
+cloudfunctions/**/.env
+
+# WeChat miniprogram build artifacts and local settings
+miniprogram/dist/
+miniprogram/build/
+miniprogram/local/*
+miniprogram/.tcb/*
+miniprogram/**/node_modules/
+
+# Test artifacts
+.nyc_output/
+.jest/
+coverage/
+
+# Packaged files
+*.tgz
+
+# Misc
+*.swp
+*.lock
+
+# Keep important config files tracked by default. Uncomment if you want them ignored:
+cloudbaserc.json
+bot-config.yaml
+
+# Sensitive credentials, keys and local secrets
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+*.crt
+*.cer
+*.pfx
+*.asc
+*.secret
+*.credentials
+credentials.json
+serviceAccount*.json
+google-services.json
+firebase*.json
+local.settings.json
+secrets.json
+.secrets/
+
+# Environment/local config
+.env.local
+.env.*.local
+.env.*.secret
+.npmrc
+.yarnrc
+
+# Cloud provider/CLI credentials
+.gcloud/
+*.gcloud.json
+*.azure*json
+
+# IDE / editor secrets
+.vscode/settings.json
+.vscode/*.code-workspace
+.idea/*workspace.xml
+
+
+
+# Note: .gitignore prevents future commits of these files; files already in the remote history must be removed separately.

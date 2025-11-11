@@ -1,0 +1,108 @@
+/* pages/shared/shared.wxss */
+page {
+  background-color: #fafbfc;
+}
+
+.shared-container {
+  min-height: 100vh;
+  padding: 32rpx 24rpx;
+}
+
+.loading-container,
+.error-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 60vh;
+}
+
+.loading-text,
+.error-text {
+  font-size: 28rpx;
+  color: #666;
+  margin-bottom: 32rpx;
+}
+
+.shared-header {
+  background: white;
+  border-radius: 16rpx;
+  padding: 32rpx 24rpx;
+  margin-bottom: 32rpx;
+  box-shadow: 0 1rpx 8rpx rgba(0, 0, 0, 0.04);
+}
+
+.shared-title {
+  display: block;
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 16rpx;
+}
+
+.shared-time {
+  font-size: 24rpx;
+  color: #8a8a8a;
+}
+
+.messages-container {
+  margin-bottom: 32rpx;
+}
+
+.user-message,
+.assistant-message {
+  margin-bottom: 32rpx;
+}
+
+.user-message .message-content {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 24rpx;
+  border-radius: 20rpx 4rpx 20rpx 20rpx;
+  margin-left: 80rpx;
+  font-size: 28rpx;
+  line-height: 1.5;
+}
+
+.assistant-message .message-content {
+  background: white;
+  color: #2c3e50;
+  padding: 24rpx;
+  border-radius: 4rpx 20rpx 20rpx 20rpx;
+  margin-right: 80rpx;
+  font-size: 28rpx;
+  line-height: 1.6;
+  box-shadow: 0 1rpx 8rpx rgba(0, 0, 0, 0.04);
+}
+
+.card-container {
+  margin-right: 80rpx;
+  margin-top: 16rpx;
+}
+
+.shared-footer {
+  display: flex;
+  gap: 24rpx;
+  margin-top: 48rpx;
+}
+
+.back-btn,
+.share-btn {
+  flex: 1;
+  height: 88rpx;
+  line-height: 88rpx;
+  border-radius: 44rpx;
+  font-size: 28rpx;
+  border: none;
+}
+
+.back-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.share-btn {
+  background: white;
+  color: #667eea;
+  border: 2rpx solid #667eea;
+}

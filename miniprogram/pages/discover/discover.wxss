@@ -1,0 +1,161 @@
+/* pages/discover/discover.wxss */
+page {
+  height: 100vh;
+  background-color: #f5f5f5;
+  overflow: hidden;
+}
+
+.discover-container {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.discover-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding-bottom: 20rpx;
+}
+
+/* 区块样式 */
+.section {
+  background-color: #ffffff;
+  margin: 20rpx 0;
+  padding: 24rpx 0;
+  flex-shrink: 0;
+}
+
+.section-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #333;
+  padding: 0 24rpx 20rpx;
+}
+
+/* 教授列表滚动容器 */
+.professor-scroll {
+  width: 100%;
+  white-space: nowrap;
+}
+
+/* 教授列表 */
+.professor-list {
+  display: inline-flex;
+  padding: 0 24rpx;
+}
+
+/* 教授单项 */
+.professor-item {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  margin-right: 32rpx;
+  width: 140rpx;
+}
+
+.professor-item:last-child {
+  margin-right: 24rpx;
+}
+
+/* 教授头像 */
+.professor-avatar {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 60rpx;
+  background-color: #f0f0f0;
+  margin-bottom: 12rpx;
+  border: 4rpx solid #fff;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.08);
+}
+
+/* 教授名字 */
+.professor-name {
+  font-size: 24rpx;
+  color: #333;
+  text-align: center;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 新成果区块 */
+.news-section {
+  background-color: #ffffff;
+  padding: 24rpx;
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 20rpx;
+}
+
+/* 新成果网格布局 */
+.news-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+  overflow-y: auto;
+  flex: 1;
+  padding-bottom: 20rpx;
+}
+
+/* 新成果卡片 */
+.news-card {
+  position: relative;
+  width: 100%;
+  height: 0;
+  padding-bottom: 100%; /* 创建正方形 */
+  border-radius: 16rpx;
+  overflow: hidden;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.1);
+}
+
+/* 新成果背景图 */
+.news-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 新成果标签（胶囊形） */
+.news-tag {
+  position: absolute;
+  top: 26rpx;
+  left: 32rpx;
+  background: transparent;
+  color: white;
+  font-size: 26rpx;
+  padding: 16rpx 32rpx;
+  border-radius: 48rpx;
+  border-color: rgb(218, 218, 218);
+  font-weight: 400;
+  z-index: 2;
+}
+
+/* 新成果标题 */
+.news-title {
+  position: absolute;
+  bottom: 38rpx;
+  left: 0;
+  right: 0;
+  background: transparent;
+  color: white;
+  font-size: 38rpx;
+  padding: 50rpx 23rpx 23rpx;
+  line-height: 1.6;
+  z-index: 2;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}

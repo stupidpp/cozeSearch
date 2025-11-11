@@ -1,0 +1,56 @@
+{
+  "pages": [
+    "pages/discover/discover", 
+    "pages/chatBot/chatBot", 
+    "pages/favorites/favorites", 
+    "pages/index/index", 
+    "pages/conversations/conversations", 
+    "pages/shared/shared",
+    "pages/webview/webview"
+  ],
+  "usingComponents": {
+    "custom-professor-list": "/components/tools/professor-list/index"
+  },
+  "window": {
+    "navigationBarBackgroundColor": "#ffffff",
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "成果搜索Agent",
+    "backgroundColor": "#eeeeee",
+    "backgroundTextStyle": "light",
+    "enablePullDownRefresh": true
+  },
+  "tabBar": {
+    "color": "#7A7E83",
+    "selectedColor": "#3498db",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "white",
+    
+    "list": [
+      {
+        "pagePath": "pages/discover/discover",
+        "iconPath": "assets/icons/discover.png",
+        "selectedIconPath": "assets/icons/discover.png"
+      },
+      {
+        "pagePath": "pages/chatBot/chatBot",
+        "iconPath": "assets/icons/bot.png",
+        "selectedIconPath": "assets/icons/bot.png"
+      },
+      {
+        "pagePath": "pages/favorites/favorites",
+        "iconPath": "assets/icons/star.png",
+        "selectedIconPath": "assets/icons/star.png"
+      }
+    ]
+  },
+
+  "sitemapLocation": "sitemap.json",
+  "style": "v2",
+  "lazyCodeLoading": "requiredComponents",
+  "networkTimeout": {
+    "request": 300000,
+    "connectSocket": 60000,
+    "uploadFile": 60000,
+    "downloadFile": 60000
+  }
+}

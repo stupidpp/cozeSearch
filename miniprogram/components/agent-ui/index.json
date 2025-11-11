@@ -1,0 +1,10 @@
+{
+  "component": true,
+  "usingComponents": {
+    "markdownPreview": "/components/ui/wd-markdown/index",
+    "FoldedCard": "/components/ui/collapse/index",
+    "chatFile": "/components/chat/chatFile/index",
+    "feedback": "/components/chat/feedback/index",
+    "customCard": "/components/ui/customCard/index"
+  }
+}

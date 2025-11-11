@@ -1,0 +1,106 @@
+/* 全局设计系统变量 */
+/* 颜色系统 */
+:root {
+  /* 主题色 */
+  --primary-color: #3498db;
+  --primary-light: #5a9fd4;
+  --primary-dark: #2980b9;
+  
+  /* 功能色 */
+  --success-color: #27ae60;
+  --warning-color: #f39c12;
+  --error-color: #e74c3c;
+  --info-color: #3498db;
+  
+  /* 中性色 */
+  --text-primary: #2c3e50;
+  --text-secondary: #5a6c7d;
+  --text-tertiary: #95a5a6;
+  --text-disabled: #bdc3c7;
+  
+  /* 背景色 */
+  --bg-primary: #ffffff;
+  --bg-secondary: #fafbfc;
+  --bg-tertiary: #f5f7fa;
+  --bg-card: #ffffff;
+  --bg-hover: #f9f9f9;
+  --bg-active: #f3f4f6;
+  
+  /* 边框色 */
+  --border-light: rgba(102, 126, 234, 0.1);
+  --border-normal: #e1e8ed;
+  --border-dark: #d0d7de;
+  
+  /* 阴影 */
+  --shadow-sm: 0 1rpx 4rpx rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 2rpx 8rpx rgba(52, 152, 219, 0.2);
+  --shadow-lg: 0 4rpx 16rpx rgba(0, 0, 0, 0.15);
+  
+  /* 圆角 */
+  --radius-sm: 8rpx;
+  --radius-md: 12rpx;
+  --radius-lg: 24rpx;
+  --radius-xl: 32rpx;
+  
+  /* 间距 */
+  --space-xs: 8rpx;
+  --space-sm: 16rpx;
+  --space-md: 24rpx;
+  --space-lg: 32rpx;
+  --space-xl: 48rpx;
+  --space-xxl: 64rpx;
+  
+  /* 字体大小 */
+  --font-xs: 20rpx;
+  --font-sm: 24rpx;
+  --font-md: 28rpx;
+  --font-lg: 32rpx;
+  --font-xl: 36rpx;
+  --font-xxl: 48rpx;
+  
+  /* 字体权重 */
+  --font-normal: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+}
+
+/* 常用组合样式 */
+.btn {
+  border-radius: var(--radius-sm);
+  font-size: var(--font-md);
+  font-weight: var(--font-medium);
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.btn-primary {
+  background-color: var(--primary-color);
+  color: var(--bg-primary);
+  border: none;
+}
+
+.btn-secondary {
+  background-color: var(--bg-primary);
+  color: var(--primary-color);
+  border: 1rpx solid var(--primary-color);
+}
+
+.card {
+  background-color: var(--bg-card);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-md);
+}
+
+.text-primary {
+  color: var(--text-primary);
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+}
+
+.bg-page {
+  background-color: var(--bg-secondary);
+}

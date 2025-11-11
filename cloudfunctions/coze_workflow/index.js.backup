@@ -1,0 +1,1223 @@
+const cloud = require('wx-server-sdk');
+const axios = require('axios');
+
+// 初始化云开发
+cloud.init({
+  env: cloud.DYNAMIC_CURRENT_ENV
+});
+
+// 检查是否为无关提问的回答
+function isIrrelevantResponse(text) {
+  if (!text || typeof text !== 'string') {
+    return false;
+  }
+  
+  // 无关提问的关键词和模式
+  const irrelevantPatterns = [
+    /抱歉.*无法.*提供.*回答/i,
+    /我们无法为您提供.*的回答/i,
+    /不在.*服务范围/i,
+    /专注于.*科研.*合作/i,
+    /请问.*科研.*需求/i,
+    /我是.*科研.*助手/i,
+    /只能.*科研.*相关/i,
+    /预约.*进校/i,
+    /生活.*服务/i,
+    /行政.*事务/i,
+    /校园.*导航/i,
+    /课程.*安排/i,
+    /考试.*成绩/i,
+    /宿舍.*食堂/i
+  ];
+  
+  return irrelevantPatterns.some(pattern => pattern.test(text));
+}
+
+// 检查是否为详细询问某个特定教授
+function isSpecificProfessorInquiry(userInput) {
+  if (!userInput || typeof userInput !== 'string') {
+    return false;
+  }
+  
+  const specificPatterns = [
+    /.*教授.*怎么样/i,
+    /.*教授.*详细.*信息/i,
+    /.*教授.*研究.*方向/i,
+    /.*教授.*联系.*方式/i,
+    /.*教授.*发表.*论文/i,
+    /.*教授.*具体.*做什么/i,
+    /详细.*介绍.*教授/i,
+    /能否.*详细.*说明/i,
+    /具体.*了解.*教授/i,
+    /更多.*关于.*教授/i
+  ];
+  
+  return specificPatterns.some(pattern => pattern.test(userInput));
+}
+
+// 从文本中解析教授信息并生成卡片数据
+function parseProfesorInfoFromText(text) {
+  try {
+    if (!text || typeof text !== 'string') {
+      return null;
+    }
+
+    // 检查是否为无关提问的回答
+    if (isIrrelevantResponse(text)) {
+      console.log('⚠️ 检测到无关提问回答，跳过教授信息解析');
+      return null;
+    }
+
+    // 必须包含教授推荐的明确特征才进行解析
+    const hasValidProfessorIndicators = [
+      /教授.*推荐/i,
+      /推荐.*教授/i,
+      /以下.*教授/i,
+      /为您推荐/i,
+      /\d+\.\s*\*\*[^*]+\*\*.*?(学院|研究所|系)/i  // 编号+教授姓名+学院格式
+    ].some(pattern => pattern.test(text));
+
+    if (!hasValidProfessorIndicators) {
+      console.log('⚠️ 文本中未检测到教授推荐特征，跳过解析');
+      return null;
+    }
+
+    const professors = [];
+    
+    // 匹配教授信息：编号+姓名格式
+    let professorMatches = text.match(/(\d+\.\s*\*\*([^*]+)\*\*[^]*?)(?=\d+\.\s*\*\*|$)/g);
+    
+    // 如果没有找到编号格式，尝试匹配单个教授
+    if (!professorMatches || professorMatches.length === 0) {
+      const singleProfRegex = /\*\*([^*]+)\*\*[^]*?(学院|研究所|系)/i;
+      const singleProfMatch = text.match(singleProfRegex);
+      if (singleProfMatch) {
+        professorMatches = [singleProfMatch[0]];
+      }
+    }
+    
+    if (professorMatches && professorMatches.length > 0) {
+      professorMatches.forEach((match, index) => {
+        try {
+          // 提取教授姓名
+          const nameMatch = match.match(/\*\*([^*]+)\*\*/);
+          const name = nameMatch ? nameMatch[1].trim() : `教授${index + 1}`;
+          
+          // 提取学院信息
+          let school = '';
+          const schoolPatterns = [
+            /浙江大学([^，。：:]*?)(学院|研究所|系)/i,
+            /([^，。：:*]*?)(学院|研究所|系)/i
+          ];
+          
+          for (const pattern of schoolPatterns) {
+            const schoolMatch = match.match(pattern);
+            if (schoolMatch) {
+              school = (schoolMatch[1] + schoolMatch[2]).trim();
+              // 清理学院名称
+              school = school.replace(/^(浙江大学|浙大)/, '').trim();
+              school = school.replace(/\*\*[^*]*\*\*[：:]*/, '').trim();
+              if (school && school.length > 2 && !school.includes('*')) {
+                break;
+              }
+            }
+          }
+          if (!school) school = '未知学院';
+          
+          // 提取邮箱
+          let email = '';
+          const emailMatch = match.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+          if (emailMatch) {
+            email = emailMatch[1].trim();
+          }
+
+          // 提取办公地点
+          let office = '';
+          const officeMatch = match.match(/(?:办公地点|办公室|地址)[：:\s]*([^\n。；,，]+)/i);
+          if (officeMatch && officeMatch[1]) {
+            office = officeMatch[1].trim().replace(/[。；,，].*$/, '');
+          }
+
+          // 提取联系电话
+          let phone = '';
+          const phoneMatch = match.match(/(?:电话|手机|tel)[：:\s]*([\d\s\-\+\(\)]{8,20})/i);
+          if (phoneMatch && phoneMatch[1]) {
+            phone = phoneMatch[1].trim().replace(/[^\d\-\+\(\)\s]/g, '');
+          }
+          
+          // 提取主页链接
+          const homepages = [];
+          const urlMatches = match.match(/(https?:\/\/[^\s，。）\n,]+)/g);
+          if (urlMatches) {
+            urlMatches.forEach(url => {
+              if (!homepages.includes(url)) {
+                homepages.push(url);
+              }
+            });
+          }
+          
+          // 提取标签/研究方向 - 只保留核心关键词
+          const tags = [];
+          const coreKeywords = [
+            '计算机视觉', '人工智能', '机器学习', '深度学习', 
+            '自然语言处理', '大模型', '多模态', '数据挖掘',
+            '智能控制', '软件工程', '网络安全', '数据库', '云计算',
+            '物联网', '区块链', '医学人工智能', '生物医学工程',
+            '材料科学', '化学工程', '机械工程', '电气工程',
+            '新能源', '光电技术', '生物技术'
+          ];
+          
+          coreKeywords.forEach(keyword => {
+            if (match.toLowerCase().includes(keyword.toLowerCase())) {
+              if (!tags.includes(keyword)) {
+                tags.push(keyword);
+              }
+            }
+          });
+          
+          // 提取研究成果/亮点
+          let researchContent = match;
+          // 清理联系信息
+          researchContent = researchContent.replace(/\*\*[^*]+\*\*/g, '');
+          researchContent = researchContent.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '');
+          researchContent = researchContent.replace(/https?:\/\/[^\s，。）\n,]+/g, '');
+          researchContent = researchContent.replace(/(邮箱|电话|主页|网站|办公地点|地址|联系方式)[：:]?[^。\n]*[。\n]?/g, '');
+          
+          const achievements = researchContent
+            .split(/[。；;\n]/)
+            .map(s => s.replace(/^\d+\.\s*/, '').replace(/^[-•]\s*/, '').trim())
+            .filter(s => s.length > 15 && !/(邮箱|电话|主页|网站|办公地点|地址|联系方式|http|@)/.test(s))
+            .slice(0, 3);
+          
+          const finalHighlights = achievements.length > 0 ? achievements : [
+            '在相关研究领域具有丰富经验'
+          ];
+          
+          // 计算匹配度
+          let score = 60; // 基础分
+          if (email) score += 10;
+          if (homepages.length > 0) score += 10;
+          if (finalTags.length > 0) score += 10;
+          if (achievements.length > 2) score += 5;
+          if (office) score += 2;
+          if (phone) score += 3;
+          
+          const professorData = {
+            name: name,
+            school: school,
+            areas: tags.slice(0, 3), // 最多3个研究方向标签
+            highlights: finalHighlights,
+            score: Math.min(score, 100),
+            displayScore: Math.min(score, 100),
+            profId: `prof_${Date.now()}_${index}`,
+            documentId: `doc_${Date.now()}_${index}`
+          };
+          
+          // 只有在有值的情况下才添加
+          if (email) {
+            professorData.email = email;
+          }
+          if (office) {
+            professorData.office = office;
+          }
+          if (phone) {
+            professorData.phone = phone;
+          }
+          if (homepages.length > 0) {
+            professorData.homepages = homepages;
+          }
+          
+          professors.push(professorData);
+          
+        } catch (e) {
+          console.log(`解析第${index + 1}位教授信息失败:`, e);
+        }
+      });
+    }
+    
+    if (professors.length > 0) {
+      console.log(`成功解析 ${professors.length} 位教授信息`);
+      return {
+        type: "professor_list",
+        professors: professors
+      };
+    }
+    
+  } catch (e) {
+    console.log('解析教授信息失败:', e);
+  }
+  
+  return null;
+}
+
+// 从数据库直接查询教授信息
+// 专门根据教授姓名从数据库查询联系信息
+async function queryProfessorsByNames(professorNames) {
+  try {
+    console.log('🔍 根据教授姓名从数据库查询联系信息:', professorNames);
+    
+    const allProfessors = [];
+    
+    // 为每个教授名称单独查询
+    for (const name of professorNames) {
+      try {
+        const result = await cloud.callFunction({
+          name: 'search_professors',
+          data: {
+            q: name,
+            page: 1,
+            pageSize: 3,
+            sortBy: 'time'
+          }
+        });
+        
+        if (result && result.result && result.result.code === 0 && 
+            result.result.data && result.result.data.list && result.result.data.list.length > 0) {
+          
+          // 寻找最匹配的教授记录
+          let bestMatch = null;
+          let bestScore = 0;
+          
+          for (const doc of result.result.data.list) {
+            if (!doc.name) continue;
+            
+            const similarity = calculateNameSimilarity(name, doc.name);
+            if (similarity > bestScore) {
+              bestScore = similarity;
+              bestMatch = doc;
+            }
+          }
+          
+          if (bestMatch && bestScore > 0.6) {
+            const professor = {
+              name: bestMatch.name,
+              originalName: name, // 保留原始AI解析的名称
+              school: bestMatch.school || '未知学院',
+              email: bestMatch.email || '',
+              homepages: bestMatch.homepage ? [bestMatch.homepage.trim()] : [],
+              office: bestMatch.office || '',
+              phone: bestMatch.phone || '',
+              matchScore: bestScore
+            };
+            
+            allProfessors.push(professor);
+            console.log(`✅ 找到匹配: ${name} -> ${bestMatch.name} (相似度: ${bestScore.toFixed(2)})`);
+          } else {
+            console.log(`⚠️ 未找到匹配: ${name}`);
+          }
+          
+        } else {
+          console.log(`⚠️ 查询 ${name} 无结果`);
+        }
+        
+      } catch (err) {
+        console.error(`❌ 查询教授 ${name} 失败:`, err);
+      }
+    }
+    
+    console.log(`📊 成功查询到 ${allProfessors.length} 位教授的数据库信息`);
+    return allProfessors;
+    
+  } catch (error) {
+    console.error('❌ 根据姓名查询教授失败:', error);
+    return [];
+  }
+}
+
+// 备用的通用查询（保留原功能）
+async function queryProfessorsFromDatabase(userInput, responseText) {
+  try {
+    console.log('🔍 从数据库查询教授信息...');
+    
+    // 简化关键词提取
+    const combinedText = (userInput || '') + ' ' + (responseText || '');
+    let queryKeyword = '';
+    
+    // 匹配核心关键词
+    const coreKeywords = ['计算机视觉', '人工智能', '机器学习', '深度学习', '大数据', '网络安全', '生物医学'];
+    for (const keyword of coreKeywords) {
+      if (combinedText.includes(keyword)) {
+        queryKeyword = keyword;
+        break;
+      }
+    }
+    
+    // 如果没有匹配到关键词，使用用户输入的第一个有意义的词
+    if (!queryKeyword) {
+      const cleanInput = userInput.replace(/[我想找合作教授的方向推荐一些给]/g, '').trim();
+      queryKeyword = cleanInput || '教授';
+    }
+    
+    // 调用search_professors云函数
+    const result = await cloud.callFunction({
+      name: 'search_professors',
+      data: {
+        q: queryKeyword,
+        page: 1,
+        pageSize: 5,
+        sortBy: 'time'
+      }
+    });
+    
+    if (result && result.result && result.result.code === 0 && 
+        result.result.data && result.result.data.list && result.result.data.list.length > 0) {
+      
+      const professors = result.result.data.list.map((doc, index) => ({
+        name: doc.name || '未知',
+        school: doc.school || '未知学院',
+        // 联系信息（数据库的核心价值）
+        email: doc.email || '',
+        homepages: doc.homepage ? [doc.homepage.trim()] : [],
+        office: doc.office || '',
+        phone: doc.phone || '',
+        // 基础信息（作为备用）
+        areas: Array.isArray(doc.areas) ? doc.areas.slice(0, 3) : [],
+        highlights: Array.isArray(doc.highlights) ? doc.highlights.slice(0, 3) : [],
+        score: 85 + Math.random() * 10,
+        displayScore: 85 + Math.random() * 10,
+        profId: doc.profId || `prof_db_${Date.now()}_${index}`,
+        documentId: `doc_db_${Date.now()}_${index}`
+      }));
+      
+      return {
+        type: "professor_list",
+        professors: professors
+      };
+    }
+    
+    return null;
+    
+  } catch (error) {
+    console.error('❌ 数据库查询教授信息失败:', error);
+    return null;
+  }
+}
+
+// 重新设计的严格匹配混合逻辑（彻底解决信息错乱问题）
+async function createHybridProfessorCards(userInput, responseText) {
+  try {
+    console.log('🔄 使用严格混合逻辑生成教授卡片（防止信息错乱）...');
+    
+    // 第一步：从AI回复中提取教授学术信息
+    const aiProfessors = parseAcademicInfoFromText(responseText);
+    if (!aiProfessors || aiProfessors.length === 0) {
+      console.log('⚠️ AI回复中未找到教授学术信息');
+      return null;
+    }
+    
+    console.log(`✅ 从AI回复提取到 ${aiProfessors.length} 位教授的学术信息`);
+    aiProfessors.forEach((prof, i) => {
+      console.log(`  AI教授${i+1}: ${prof.name} (${prof.school})`);
+    });
+    
+    // 第二步：根据AI解析的教授姓名精确查询数据库
+    const professorNames = aiProfessors.map(prof => prof.name);
+    const dbProfessors = await queryProfessorsByNames(professorNames);
+    
+    console.log(`📊 从数据库精确查询到 ${dbProfessors.length} 位教授的联系信息`);
+    dbProfessors.forEach((prof, i) => {
+      console.log(`  DB教授${i+1}: ${prof.name} -> 原名: ${prof.originalName}, 邮箱: ${prof.email}, 主页: ${prof.homepages?.[0] || '无'}`);
+    });
+
+    // 第三步：严格一对一匹配（彻底避免信息错乱）
+    const hybridProfessors = [];
+    const usedDbProfessors = new Set();
+    
+    for (let i = 0; i < aiProfessors.length; i++) {
+      const aiProf = aiProfessors[i];
+      console.log(`\n🔄 处理AI教授${i+1}: ${aiProf.name}`);
+      
+      // 寻找完全匹配的数据库记录
+      let matchedDbProf = null;
+      
+      // 方法1：原始查询名称完全匹配
+      for (const dbProf of dbProfessors) {
+        if (usedDbProfessors.has(dbProf.name)) continue;
+        
+        if (dbProf.originalName === aiProf.name) {
+          matchedDbProf = dbProf;
+          console.log(`🎯 原始名称完全匹配: ${aiProf.name} -> ${dbProf.name}`);
+          break;
+        }
+      }
+      
+      // 方法2：数据库姓名完全匹配
+      if (!matchedDbProf) {
+        for (const dbProf of dbProfessors) {
+          if (usedDbProfessors.has(dbProf.name)) continue;
+          
+          if (dbProf.name === aiProf.name) {
+            matchedDbProf = dbProf;
+            console.log(`🎯 数据库名称完全匹配: ${aiProf.name} -> ${dbProf.name}`);
+            break;
+          }
+        }
+      }
+      
+      // 创建混合教授数据
+      const hybridProf = {
+        name: aiProf.name,
+        school: aiProf.school || '未知学院',
+        areas: aiProf.areas || [],
+        highlights: aiProf.highlights || [],
+        score: aiProf.score || 85,
+        displayScore: aiProf.displayScore || 85,
+        profId: aiProf.profId || `prof_hybrid_${Date.now()}_${i}`,
+        documentId: aiProf.documentId || `doc_hybrid_${Date.now()}_${i}`
+      };
+      
+      // 如果找到匹配的数据库记录，添加联系信息
+      if (matchedDbProf) {
+        usedDbProfessors.add(matchedDbProf.name);
+        
+        // 添加准确的联系信息
+        if (matchedDbProf.email && matchedDbProf.email.includes('@')) {
+          hybridProf.email = matchedDbProf.email;
+        }
+        if (matchedDbProf.homepages && matchedDbProf.homepages.length > 0) {
+          hybridProf.homepages = [...new Set(matchedDbProf.homepages)]; // 去重
+        }
+        if (matchedDbProf.office) {
+          hybridProf.office = matchedDbProf.office;
+        }
+        if (matchedDbProf.phone) {
+          hybridProf.phone = matchedDbProf.phone;
+        }
+        if (matchedDbProf.school) {
+          hybridProf.school = matchedDbProf.school;
+        }
+        
+        console.log(`✅ ${aiProf.name} 匹配成功，联系信息: 邮箱=${hybridProf.email || '无'}, 主页=${hybridProf.homepages?.[0] || '无'}`);
+      } else {
+        console.log(`⚠️ ${aiProf.name} 未找到匹配的数据库记录，使用备用方案`);
+        
+        // 备用方案：生成标准主页
+        const standardHomepage = generateZjuHomepage(aiProf.name);
+        if (standardHomepage) {
+          hybridProf.homepages = [standardHomepage];
+          console.log(`🏫 为 ${aiProf.name} 生成标准主页: ${standardHomepage}`);
+        }
+      }
+      
+      hybridProfessors.push(hybridProf);
+    }
+    
+    // 最终验证
+    console.log('\n📋 最终教授信息验证:');
+    hybridProfessors.forEach((prof, i) => {
+      console.log(`教授${i+1}: ${prof.name}`);
+      console.log(`  邮箱: ${prof.email || '无'}`);
+      console.log(`  主页: ${prof.homepages?.join(', ') || '无'}`);
+      console.log(`  学院: ${prof.school}`);
+    });
+    
+    return {
+      type: "professor_list", 
+      professors: hybridProfessors
+    };
+    
+  } catch (error) {
+    console.error('❌ 严格混合逻辑处理失败:', error);
+    return null;
+  }
+}
+
+
+
+        
+
+          console.log(`� 相似度匹配: ${aiProf.name} -> ${bestDbMatch.name} (${bestMatchScore.toFixed(2)})`);
+        }
+      }
+
+
+        
+        // 备用方案2: 生成浙大标准主页格式 (根据姓名推测)
+        if (!hybridProf.homepages || hybridProf.homepages.length === 0) {
+
+
+
+// 判断用户是否在询问联系信息
+function isAskingForContactInfo(userInput) {
+  if (!userInput || typeof userInput !== 'string') {
+    return false;
+  }
+  
+  const contactQuestionPatterns = [
+    /.*邮箱.*(是什么|多少|怎么联系)/i,
+    /.*主页.*(是什么|在哪|链接)/i,
+    /.*电话.*(是什么|多少|怎么联系)/i,
+    /.*办公地点.*(在哪|地址)/i,
+    /.*联系方式.*(是什么|怎么联系)/i,
+    /.*怎么联系.*教授/i,
+    /.*教授.*联系方式/i,
+    /.*教授.*邮箱/i,
+    /.*教授.*主页/i,
+    /.*教授.*电话/i,
+    /邮箱/i,
+    /主页/i,
+    /网址/i,
+    /联系电话/i,
+    /办公地点/i,
+    /办公室/i
+  ];
+  
+  return contactQuestionPatterns.some(pattern => pattern.test(userInput));
+}
+
+// 从AI回复中提取联系信息（用于用户询问联系方式时）
+function extractContactInfoFromText(text) {
+  if (!text || typeof text !== 'string') {
+    return {};
+  }
+  
+  const contactInfo = {
+    emails: [],
+    homepages: [],
+    phones: [],
+    offices: []
+  };
+  
+  try {
+    // 提取邮箱
+    const emailPattern = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+    const emails = text.match(emailPattern);
+    if (emails) {
+      contactInfo.emails = [...new Set(emails)]; // 去重
+    }
+    
+    // 强化URL（主页）提取 - 支持多种格式
+    const urlPatterns = [
+      // 标准HTTP/HTTPS链接
+      /https?:\/\/[^\s，。）\n,\]]+/g,
+      // 个人主页关键词后的链接
+      /(?:个人主页|主页|网站|homepage|website)[：:\s]*([^\s，。）\n,\]]+)/gi,
+      // 浙大个人主页格式
+      /person\.zju\.edu\.cn\/[^\s，。）\n,\]]+/g,
+      // 其他常见学术主页格式
+      /[a-zA-Z0-9.-]+\.edu(?:\.cn)?\/[~\/\w.-]+/g
+    ];
+    
+    const allUrls = new Set();
+    
+    for (const pattern of urlPatterns) {
+      const matches = text.matchAll(pattern);
+      for (const match of matches) {
+        let url = match[1] || match[0]; // 使用捕获组或整个匹配
+        
+        // 清理URL
+        url = url.trim().replace(/[，。）\]]+$/, ''); // 移除末尾的中文标点
+        
+        // 验证URL格式
+        if (url && (url.startsWith('http') || url.includes('.edu') || url.includes('person.zju'))) {
+          // 确保以http开头
+          if (!url.startsWith('http')) {
+            if (url.startsWith('//')) {
+              url = 'https:' + url;
+            } else {
+              url = 'https://' + url;
+            }
+          }
+          
+          allUrls.add(url);
+        }
+      }
+    }
+    
+    contactInfo.homepages = [...allUrls];
+    
+    // 提取电话
+    const phonePattern = /(?:联系电话|电话|手机|tel)[：:\s]*([\d\s\-\+\(\)]{8,20})/gi;
+    const phoneMatches = text.matchAll(phonePattern);
+    for (const match of phoneMatches) {
+      if (match[1]) {
+        contactInfo.phones.push(match[1].trim());
+      }
+    }
+    
+    // 提取办公地点
+    const officePattern = /(?:办公地点|办公室|地址)[：:\s]*([^\n。；,，]+)/gi;
+    const officeMatches = text.matchAll(officePattern);
+    for (const match of officeMatches) {
+      if (match[1]) {
+        contactInfo.offices.push(match[1].trim());
+      }
+    }
+    
+    console.log('🔍 从AI回复提取的联系信息:', contactInfo);
+    
+  } catch (error) {
+    console.error('❌ 提取联系信息失败:', error);
+  }
+  
+  return contactInfo;
+}
+
+// 专门提取教授个人主页的增强函数
+function extractProfessorHomepages(text, professorName) {
+  const homepages = [];
+  
+  if (!text || typeof text !== 'string') {
+    return homepages;
+  }
+  
+  try {
+    console.log(`🔍 为教授 ${professorName} 提取个人主页...`);
+    
+    // 提取该教授相关段落
+    const professorSection = extractProfessorSection(text, professorName);
+    const searchText = professorSection || text;
+    
+    console.log(`📄 搜索文本长度: ${searchText.length}`);
+    
+    // 多种主页提取模式
+    const homepagePatterns = [
+      // 1. 标准HTTP/HTTPS链接
+      /https?:\/\/[^\s，。）\n,\]【】]+/g,
+      
+      // 2. 个人主页关键词模式
+      /(?:个人主页|主页|网站|homepage|website)[：:\s]*([^\s，。）\n,\]【】]+)/gi,
+      
+      // 3. 浙大特定格式
+      /person\.zju\.edu\.cn\/[^\s，。）\n,\]【】]+/g,
+      
+      // 4. 学术网站常见格式
+      /[a-zA-Z0-9.-]+\.(?:edu|edu\.cn|ac\.cn|org|com)\/[~\/\w.-]+/g,
+      
+      // 5. ResearchGate, Google Scholar等学术平台
+      /(?:researchgate\.net|scholar\.google|orcid\.org|ieee\.org)\/[^\s，。）\n,\]【】]+/g
+    ];
+    
+    for (const pattern of homepagePatterns) {
+      const matches = searchText.matchAll(pattern);
+      for (const match of matches) {
+        let url = match[1] || match[0];
+        
+        // 清理URL
+        url = url.trim()
+          .replace(/[，。）\]【】]+$/, '') // 移除末尾标点
+          .replace(/\s+$/, ''); // 移除末尾空格
+        
+        // 验证和标准化URL
+        if (url && isValidHomepageUrl(url)) {
+          // 确保以http开头
+          if (!url.startsWith('http')) {
+            if (url.startsWith('//')) {
+              url = 'https:' + url;
+            } else {
+              url = 'https://' + url;
+            }
+          }
+          
+          if (!homepages.includes(url)) {
+            homepages.push(url);
+            console.log(`✅ 找到主页: ${url}`);
+          }
+        }
+      }
+    }
+    
+    console.log(`📝 为 ${professorName} 提取到 ${homepages.length} 个主页链接`);
+    
+  } catch (error) {
+    console.error(`❌ 提取 ${professorName} 主页失败:`, error);
+  }
+  
+  return homepages;
+}
+
+// 提取特定教授的相关段落
+function extractProfessorSection(text, professorName) {
+  try {
+    // 寻找教授姓名周围的内容
+    const nameIndex = text.indexOf(professorName);
+    if (nameIndex === -1) return null;
+    
+    // 提取前后各500字符的内容
+    const start = Math.max(0, nameIndex - 200);
+    const end = Math.min(text.length, nameIndex + 800);
+    
+    return text.substring(start, end);
+  } catch (error) {
+    console.error('提取教授段落失败:', error);
+    return null;
+  }
+}
+
+// 验证URL是否为有效的主页链接
+function isValidHomepageUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+  
+  // 基本长度检查
+  if (url.length < 10 || url.length > 200) return false;
+  
+  // 包含有效域名特征
+  const validDomains = [
+    '.edu', '.edu.cn', '.ac.cn', '.org', '.com', '.net',
+    'zju.edu.cn', 'person.zju', 'scholar.google', 'researchgate',
+    'orcid.org', 'ieee.org', 'acm.org'
+  ];
+  
+  const hasValidDomain = validDomains.some(domain => url.toLowerCase().includes(domain));
+  
+  // 排除明显的非主页链接
+  const invalidPatterns = [
+    /\.(jpg|jpeg|png|gif|pdf|doc|docx|ppt|pptx)$/i,
+    /\.(zip|rar|tar|gz)$/i,
+    /^\d+$/,
+    /^[,，。；;]+/
+  ];
+  
+  const isInvalid = invalidPatterns.some(pattern => pattern.test(url));
+  
+  return hasValidDomain && !isInvalid;
+}
+
+// 生成浙大标准主页格式 (根据教授姓名和学院推测)
+function generateZjuHomepage(professorName) {
+  if (!professorName || professorName.length < 2) {
+    return null;
+  }
+  
+  try {
+    console.log(`🏫 为 ${professorName} 生成浙大标准主页...`);
+    
+    // 浙大个人主页的常见格式
+    // https://person.zju.edu.cn/姓名拼音 或 https://person.zju.edu.cn/工号
+    
+    // 生成基于姓名的可能主页
+    const possibleHomepages = [];
+    
+    // 方案1: 基于姓名拼音的主页格式
+    const pinyinName = convertToPinyin(professorName);
+    if (pinyinName) {
+      possibleHomepages.push(`https://person.zju.edu.cn/${pinyinName}`);
+      possibleHomepages.push(`https://person.zju.edu.cn/${pinyinName.toLowerCase()}`);
+    }
+    
+    // 方案2: 基于姓氏的主页格式  
+    if (professorName.length >= 2) {
+      const surname = professorName.substring(0, 1);
+      const givenName = professorName.substring(1);
+      const pinyinSurname = convertToPinyin(surname);
+      const pinyinGivenName = convertToPinyin(givenName);
+      
+      if (pinyinSurname && pinyinGivenName) {
+        possibleHomepages.push(`https://person.zju.edu.cn/${pinyinSurname}${pinyinGivenName}`);
+        possibleHomepages.push(`https://person.zju.edu.cn/${pinyinSurname.toLowerCase()}${pinyinGivenName.toLowerCase()}`);
+      }
+    }
+    
+    // 返回第一个可能的主页（最常见的格式）
+    if (possibleHomepages.length > 0) {
+      const generatedHomepage = possibleHomepages[0];
+      console.log(`🎯 生成标准主页: ${generatedHomepage}`);
+      return generatedHomepage;
+    }
+    
+  } catch (error) {
+    console.error(`❌ 生成 ${professorName} 标准主页失败:`, error);
+  }
+  
+  return null;
+}
+
+// 简单的中文转拼音函数 (基本版本)
+function convertToPinyin(chineseName) {
+  // 常见中文姓名拼音映射表 (简化版)
+  const pinyinMap = {
+    '王': 'wang', '李': 'li', '张': 'zhang', '刘': 'liu', '陈': 'chen',
+    '杨': 'yang', '赵': 'zhao', '黄': 'huang', '周': 'zhou', '吴': 'wu',
+    '徐': 'xu', '孙': 'sun', '胡': 'hu', '朱': 'zhu', '高': 'gao',
+    '林': 'lin', '何': 'he', '郭': 'guo', '马': 'ma', '罗': 'luo',
+    '梁': 'liang', '宋': 'song', '郑': 'zheng', '谢': 'xie', '韩': 'han',
+    '唐': 'tang', '冯': 'feng', '于': 'yu', '董': 'dong', '萧': 'xiao',
+    '程': 'cheng', '曹': 'cao', '袁': 'yuan', '邓': 'deng', '许': 'xu',
+    '傅': 'fu', '沈': 'shen', '曾': 'zeng', '彭': 'peng', '吕': 'lv',
+    '苏': 'su', '卢': 'lu', '蒋': 'jiang', '蔡': 'cai', '贾': 'jia',
+    '丁': 'ding', '魏': 'wei', '薛': 'xue', '叶': 'ye', '阎': 'yan',
+    '余': 'yu', '潘': 'pan', '杜': 'du', '戴': 'dai', '夏': 'xia',
+    '钟': 'zhong', '汪': 'wang', '田': 'tian', '任': 'ren', '姜': 'jiang',
+    '范': 'fan', '方': 'fang', '石': 'shi', '姚': 'yao', '谭': 'tan',
+    '盛': 'sheng', '邹': 'zou', '熊': 'xiong', '金': 'jin', '陆': 'lu',
+    '郝': 'hao', '孔': 'kong', '白': 'bai', '崔': 'cui', '康': 'kang',
+    '毛': 'mao', '邱': 'qiu', '秦': 'qin', '江': 'jiang', '史': 'shi',
+    '顾': 'gu', '侯': 'hou', '邵': 'shao', '孟': 'meng', '龙': 'long',
+    '万': 'wan', '段': 'duan', '漕': 'cao', '钱': 'qian', '汤': 'tang',
+    '尹': 'yin', '黎': 'li', '易': 'yi', '常': 'chang', '武': 'wu',
+    '乔': 'qiao', '贺': 'he', '赖': 'lai', '龚': 'gong', '文': 'wen',
+    
+    // 常见名字字符
+    '伟': 'wei', '芳': 'fang', '娜': 'na', '敏': 'min', '静': 'jing',
+    '丽': 'li', '强': 'qiang', '磊': 'lei', '军': 'jun', '洋': 'yang',
+    '勇': 'yong', '艳': 'yan', '杰': 'jie', '娟': 'juan', '涛': 'tao',
+    '明': 'ming', '超': 'chao', '秀': 'xiu', '霞': 'xia', '平': 'ping',
+    '刚': 'gang', '桂': 'gui', '英': 'ying', '华': 'hua', '玉': 'yu',
+    '萍': 'ping', '红': 'hong', '燕': 'yan', '丹': 'dan', '阳': 'yang',
+    '帆': 'fan', '雪': 'xue', '梅': 'mei', '辉': 'hui', '浩': 'hao',
+    '凯': 'kai', '欣': 'xin', '晨': 'chen', '宇': 'yu', '航': 'hang',
+    '鹏': 'peng', '琳': 'lin', '婷': 'ting', '峰': 'feng', '斌': 'bin',
+    '晶': 'jing', '兰': 'lan', '雨': 'yu', '鑫': 'xin', '莉': 'li',
+    '博': 'bo', '远': 'yuan', '翔': 'xiang', '龙': 'long', '瑞': 'rui',
+    '志': 'zhi', '东': 'dong', '南': 'nan', '西': 'xi', '北': 'bei',
+    '雷': 'lei', '蕾': 'lei', '思': 'si', '慧': 'hui', '新': 'xin'
+  };
+  
+  if (!chineseName || typeof chineseName !== 'string') {
+    return null;
+  }
+  
+  let pinyin = '';
+  for (let i = 0; i < chineseName.length; i++) {
+    const char = chineseName[i];
+    if (pinyinMap[char]) {
+      pinyin += pinyinMap[char];
+    } else {
+      // 如果找不到映射，使用字符的Unicode编码作为备用
+      return null; // 无法转换则返回null
+    }
+  }
+  
+  return pinyin || null;
+}
+
+// 清理回答文本，智能处理联系信息
+function cleanResponseText(text, cardData, userInput = '') {
+  // 如果有教授卡片数据但用户询问联系信息，提供联系信息总结
+  if (cardData && cardData.type === 'professor_list' && cardData.professors && cardData.professors.length > 0) {
+    if (isAskingForContactInfo(userInput)) {
+      console.log('🔍 用户询问联系信息，生成联系方式总结');
+      
+      let contactSummary = '以下是教授的联系方式：\n\n';
+      cardData.professors.forEach((prof, index) => {
+        contactSummary += `**${prof.name}**\n`;
+        if (prof.email) contactSummary += `邮箱：${prof.email}\n`;
+        if (prof.homepages && prof.homepages.length > 0) {
+          contactSummary += `个人主页：${prof.homepages.join(', ')}\n`;
+        }
+        if (prof.office) contactSummary += `办公地点：${prof.office}\n`;
+        if (prof.phone) contactSummary += `联系电话：${prof.phone}\n`;
+        
+        // 如果没有任何联系信息，从原文提取
+        if (!prof.email && !prof.homepages && !prof.office && !prof.phone) {
+          const extractedContact = extractContactInfoFromText(text);
+          if (extractedContact.emails.length > 0) {
+            contactSummary += `邮箱：${extractedContact.emails[index] || extractedContact.emails[0]}\n`;
+          }
+          if (extractedContact.homepages.length > 0) {
+            contactSummary += `个人主页：${extractedContact.homepages[index] || extractedContact.homepages[0]}\n`;
+          }
+          if (extractedContact.offices.length > 0) {
+            contactSummary += `办公地点：${extractedContact.offices[index] || extractedContact.offices[0]}\n`;
+          }
+          if (extractedContact.phones.length > 0) {
+            contactSummary += `联系电话：${extractedContact.phones[index] || extractedContact.phones[0]}\n`;
+          }
+        }
+        
+        if (index < cardData.professors.length - 1) {
+          contactSummary += '\n';
+        }
+      });
+      
+      return contactSummary;
+    }
+    
+    // 常规情况：隐藏文字回复
+    return '';
+  }
+
+  if (!text || typeof text !== 'string') {
+    return '';
+  }
+  
+  let cleanedText = text;
+  
+  // 清理引用标记
+  cleanedText = cleanedText.replace(/\[\d+\]\s*prof_info/gi, '');
+  cleanedText = cleanedText.replace(/\[\d+\]/g, '');
+  cleanedText = cleanedText.replace(/【\d+】/g, '');
+  
+  // 如果用户明确询问联系信息，则保留相关内容
+  if (isAskingForContactInfo(userInput)) {
+    console.log('🔍 用户询问联系信息，保留联系方式内容');
+    // 只清理引用标记，保留联系信息
+    return cleanedText.replace(/\n\s*\n/g, '\n').replace(/\s+/g, ' ').trim();
+  }
+  
+  // 常规情况：移除联系信息相关的句子和段落
+  cleanedText = cleanedText.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, ''); // 移除邮箱
+  cleanedText = cleanedText.replace(/https?:\/\/[^\s，。）\n,]+/g, ''); // 移除URL
+  cleanedText = cleanedText.replace(/(?:联系电话|电话|手机|tel)[：:\s]*[\d\s\-\+\(\)]{8,20}/gi, ''); // 移除电话
+  cleanedText = cleanedText.replace(/(?:办公地点|办公室|地址)[：:\s]*[^\n。；,，]+/gi, ''); // 移除地址
+  cleanedText = cleanedText.replace(/(邮箱|电话|主页|网站|办公地点|地址|联系方式|联系电话)[：:]?[^。\n]*[。\n]?/gi, ''); // 移除联系信息句子
+  
+  // 移除空行和多余空格
+  cleanedText = cleanedText.replace(/\n\s*\n/g, '\n').replace(/\s+/g, ' ').trim();
+  
+  return cleanedText;
+}
+
+exports.main = async (event) => {
+  console.log('收到事件:', JSON.stringify(event, null, 2));
+  
+  // 兼容 Node.js 10.15 的参数解构方式
+  const eventData = event || {};
+  const input = eventData.input || '';
+  const bot_id = eventData.bot_id || '7537877620181041204'; // 你的智能体ID
+  const conversation_id = eventData.conversation_id || ''; // 对话ID
+  const user_id = eventData.user_id || 'miniprogram_user'; // 用户ID
+
+  console.log('解析后的参数:', { input, bot_id, conversation_id, user_id });
+
+  if (!input) {
+    return { code: 400, message: 'input required' };
+  }
+
+  // 从环境变量获取token（生产环境安全方式）
+  const COZE_TOKEN = process.env.COZE_TOKEN;
+  // 检查token配置
+  
+  if (!COZE_TOKEN) {
+    console.error('COZE_TOKEN 环境变量未配置');
+    return { code: 500, message: 'COZE_TOKEN environment variable not configured' };
+  }
+
+  // 使用新的Chat API v3
+  const url = 'https://api.coze.cn/v3/chat';
+  const headers = {
+    Authorization: `Bearer ${COZE_TOKEN}`,
+    'Content-Type': 'application/json',
+    Accept: 'application/json', // 非流式
+  };
+
+  // 构建聊天请求体（按照官方文档格式）
+  const body = {
+    bot_id: bot_id,
+    user_id: user_id,
+    stream: false, // 非流式
+    auto_save_history: true, // 自动保存对话历史
+  };
+
+  // 如果有对话ID，使用conversation_id进行多轮对话
+  if (conversation_id) {
+    body.conversation_id = conversation_id;
+    // 多轮对话模式：只发送当前用户消息
+    body.additional_messages = [
+      {
+        content: input,
+        content_type: "text",
+        role: "user",
+        type: "question"
+      }
+    ];
+  } else {
+    // 首轮对话模式：使用messages字段
+    body.messages = [
+      {
+        content: input,
+        content_type: "text", 
+        role: "user",
+        type: "question"
+      }
+    ];
+  }
+
+  try {
+    
+    const resp = await axios.post(url, body, { 
+      headers: headers, 
+      timeout: 30000,
+      validateStatus: function (status) {
+        return status < 500; // 接受所有小于500的状态码
+      }
+    });
+    
+    // API调用成功
+    
+    const result = resp.data;
+    
+    if (resp.status !== 200) {
+      throw new Error(`API调用失败: ${resp.status} - ${result?.error?.message || '未知错误'}`);
+    }
+
+    // 获取chat_id和conversation_id
+    const chat_id = result.data?.id;
+    const conversation_id_new = result.data?.conversation_id || conversation_id;
+    
+    if (!chat_id) {
+      throw new Error('未获取到chat_id');
+    }
+
+    // 如果状态是in_progress，需要轮询获取最终结果
+    let chatStatus = result.data?.status;
+    let finalResult = result;
+    let retryCount = 0;
+    const maxRetries = 20; // 增加到20次
+    
+    while (chatStatus === 'in_progress' && retryCount < maxRetries) {
+      console.log(`=== 轮询获取结果 (第${retryCount + 1}次) ===`);
+      
+      // 动态调整等待时间：前几次短一些，后面长一些
+      const retryInterval = retryCount < 5 ? 2000 : (retryCount < 10 ? 3000 : 4000);
+      console.log(`等待 ${retryInterval}ms 后查询...`);
+      
+      // 等待一段时间再查询
+      await new Promise(resolve => setTimeout(resolve, retryInterval));
+      
+      // 查询聊天结果
+      const queryResp = await axios.get(`https://api.coze.cn/v3/chat/retrieve?chat_id=${chat_id}&conversation_id=${conversation_id_new}`, {
+        headers: headers,
+        timeout: 15000,
+        validateStatus: function (status) {
+          return status < 500;
+        }
+      });
+      
+      console.log(`轮询响应 (${retryCount + 1}):`, JSON.stringify(queryResp.data, null, 2));
+      
+      if (queryResp.status === 200 && queryResp.data?.data) {
+        finalResult = queryResp.data;
+        chatStatus = queryResp.data.data.status;
+        
+        if (chatStatus === 'completed') {
+          console.log('✅ 智能体处理完成');
+          break;
+        } else if (chatStatus === 'failed') {
+          console.error('❌ 智能体处理失败，详细信息:', JSON.stringify(queryResp.data, null, 2));
+          
+          // 检查是否是余额不足的错误
+          const errorCode = queryResp.data?.data?.last_error?.code;
+          const errorMsg = queryResp.data?.data?.last_error?.msg;
+          
+          if (errorCode === 4028) {
+            console.log('💰 检测到余额不足错误，将返回特殊提示');
+          }
+          
+          // 不要立即抛出错误，继续尝试获取消息
+          break;
+        }
+      }
+      
+      retryCount++;
+    }
+
+    if (chatStatus === 'in_progress') {
+      console.warn('⚠️ 轮询超时，尝试获取当前消息');
+      // 即使轮询超时，也尝试获取可能已经生成的消息
+    } else if (chatStatus === 'failed') {
+      console.warn('⚠️ 智能体处理失败，但仍尝试获取可能的消息');
+    }
+
+    // 获取聊天消息 - 无论是否完成都尝试获取
+    let messagesResp;
+    try {
+      messagesResp = await axios.get(`https://api.coze.cn/v3/chat/message/list?chat_id=${chat_id}&conversation_id=${conversation_id_new}`, {
+        headers: headers,
+        timeout: 15000,
+        validateStatus: function (status) {
+          return status < 500;
+        }
+      });
+      // 消息响应已获取
+    } catch (e) {
+      console.error('获取消息列表失败:', e.message);
+      // 如果获取消息失败，使用默认消息
+      messagesResp = { status: 500, data: null };
+    }
+
+    // 解析真实的AI回复
+    let response_text = '';
+    let card_data = null;
+    
+    // 处理返回的消息
+    if (messagesResp.status === 200 && messagesResp.data?.data?.length > 0) {
+      const messages = messagesResp.data.data;
+      console.log(`找到 ${messages.length} 条消息`);
+      
+      // 查找助手回复
+      let assistantMessages = [];
+      for (let i = 0; i < messages.length; i++) {
+        const msg = messages[i];
+        if (msg.role === 'assistant' && (msg.type === 'answer' || msg.type === 'function_call' || msg.type === 'tool_response')) {
+          assistantMessages.push(msg);
+        }
+      }
+      
+      // 拼接所有助手消息
+      if (assistantMessages.length > 0) {
+        // 优先使用最后一条answer类型的消息
+        const answerMsg = assistantMessages.reverse().find(msg => msg.type === 'answer' && msg.content);
+        if (answerMsg) {
+          response_text = answerMsg.content;
+        } else {
+          // 如果没有answer，使用所有有内容的消息
+          response_text = assistantMessages
+            .filter(msg => msg.content)
+            .map(msg => msg.content)
+            .join('\n\n');
+        }
+        
+        // 只有在有实际内容时才进行解析和清理
+        if (response_text && response_text.trim().length > 0) {
+          // 首先检查是否为无关提问的回答
+          if (isIrrelevantResponse(response_text)) {
+            console.log('✅ 检测到无关提问，返回标准回复');
+            response_text = '抱歉，我们无法为您提供相关内容的回答，请问您有什么科研合作需求？';
+            card_data = null; // 不生成教授卡片
+          } else {
+            // 混合逻辑：结合AI回复和数据库信息
+            card_data = await createHybridProfessorCards(input, response_text);
+            
+            if (card_data && card_data.professors && card_data.professors.length > 0) {
+              // 简化回答文本，详细信息在卡片中显示
+              response_text = '根据您的需求，为您推荐以下教授：';
+            } else {
+              // 备选方案：纯文本解析
+              card_data = parseProfesorInfoFromText(response_text);
+              response_text = cleanResponseText(response_text, card_data, userInput);
+            }
+          }
+        }
+      }
+    }
+    
+    // 如果没找到有效回复，生成默认消息
+    if (!response_text || response_text.trim().length === 0) {
+      if (chatStatus === 'in_progress') {
+        response_text = '正在处理中，请稍后重试';
+      } else if (chatStatus === 'failed') {
+        response_text = '处理失败，请重试或换个表达方式';  
+      } else {
+        response_text = '暂时无法回复，请稍后重试';
+      }
+    }
+    
+    // 根据问题类型决定返回策略
+    if (card_data && card_data.type === 'professor_list' && card_data.professors && card_data.professors.length > 0) {
+      if (isIrrelevantResponse(response_text)) {
+        card_data = null;
+      } else if (!isSpecificProfessorInquiry(input)) {
+        // 宽泛问题：只返回卡片
+        response_text = '';
+      }
+    }
+    
+    return { 
+      code: 0, 
+      data: { 
+        response_text: response_text, 
+        card_data: card_data, 
+        conversation_id: conversation_id_new,
+        raw: finalResult
+      } 
+    };
+  } catch (e) {
+    console.error('API调用失败:', e.message);
+    
+    return { 
+      code: 500, 
+      message: 'API调用失败: ' + e.message
+    };
+  }
+};

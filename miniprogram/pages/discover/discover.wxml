@@ -1,0 +1,39 @@
+<!--pages/discover/discover.wxml-->
+<view class="discover-container">
+  <view class="discover-content">
+    <!-- 教授头像列表 -->
+    <view class="section">
+      <scroll-view class="professor-scroll" scroll-x="true" enable-flex="true">
+        <view class="professor-list">
+          <view 
+            class="professor-item" 
+            wx:for="{{professors}}" 
+            wx:key="name"
+            bindtap="onProfessorTap"
+            data-name="{{item.name}}"
+          >
+            <image class="professor-avatar" src="{{item.avatar}}" mode="aspectFill"/>
+            <text class="professor-name">{{item.name}}</text>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+
+    <!-- 新成果卡片列表 -->
+    <view class="news-section">
+      <view class="news-grid">
+        <view 
+          class="news-card" 
+          wx:for="{{inventions}}" 
+          wx:key="title"
+          bindtap="onInventionTap"
+          data-index="{{index}}"
+        >
+          <image class="news-bg" src="{{item.image}}" mode="aspectFill"/>
+          <view class="news-tag">新成果</view>
+          <view class="news-title">{{item.title}}</view>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

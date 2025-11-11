@@ -1,0 +1,8 @@
+<view>
+  <view class="title">成果搜索Agent</view>
+  <view class="btn-box">
+    <view class="btn-fill" data-anchor="anchor1" bind:tap="scrollToAnchor">开始使用</view>
+  </view>
+  <view class="title-h1" id="anchor1">快速开始</view>
+  <!-- 其余文案型内容移除，保留最小入口即可 -->
+</view>

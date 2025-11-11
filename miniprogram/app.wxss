@@ -1,0 +1,66 @@
+/* 引入设计系统变量 */
+@import "styles/variables.wxss";
+
+/* 全局样式 */
+page { 
+  background-color: var(--bg-primary);
+  --webkit-scrollbar-width: none !important;
+  scrollbar-width: none !important;
+  color: var(--text-primary);
+  font-size: var(--font-md);
+}
+
+/* 隐藏滚动条 */
+::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.scroll-view {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+.scroll-view::-webkit-scrollbar {
+  display: none !important;
+}
+
+/* 确保所有页面背景都是白色 */
+.container {
+  background-color: var(--bg-primary);
+}
+
+/* 通用布局类 */
+.flex {
+  display: flex;
+}
+
+.flex-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.flex-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.flex-column {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 通用间距类 */
+.p-xs { padding: var(--space-xs); }
+.p-sm { padding: var(--space-sm); }
+.p-md { padding: var(--space-md); }
+.p-lg { padding: var(--space-lg); }
+
+.m-xs { margin: var(--space-xs); }
+.m-sm { margin: var(--space-sm); }
+.m-md { margin: var(--space-md); }
+.m-lg { margin: var(--space-lg); }
+
+

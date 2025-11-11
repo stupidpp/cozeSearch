@@ -1,0 +1,17 @@
+{
+  "name": "coze_workflow",
+  "version": "1.0.0",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3",
+    "axios": "^1.7.2"
+  },
+  "cloudfunction-config": {
+    "timeout": 60,
+    "memorySize": 256,
+    "runtime": "Nodejs18.15",
+    "environment": {
+      "COZE_TOKEN": ""
+    }
+  }
+}

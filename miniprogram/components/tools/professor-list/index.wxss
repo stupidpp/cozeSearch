@@ -1,0 +1,279 @@
+/* 教授列表容器 */
+.professor-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  padding: 0;
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+  overflow: visible;
+}
+
+/* 教授卡片 - 清新简洁风格 */
+.prof-card {
+  background: #ffffff;
+  border-radius: 16rpx;
+  padding: 20rpx 16rpx;
+  position: relative;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.08);
+  border: 1px solid #f0f0f0;
+  transition: all 0.2s ease;
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+  overflow: visible;
+  margin: 0;
+}
+
+.prof-card:active {
+  transform: translateY(1rpx);
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.06);
+}
+
+.prof-card.low-match {
+  background: #fafbfc;
+  opacity: 0.8;
+  border-color: #e8e8e8;
+}
+
+/* 右上角操作按钮 - 更轻盈的设计 */
+.corner-actions {
+  position: absolute;
+  top: 6rpx;
+  right: 6rpx;
+  display: flex;
+  gap: 3rpx;
+}
+
+.action-btn {
+  width: 40rpx;
+  height: 40rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 10rpx;
+  border: none;
+  padding: 0;
+  margin: 0;
+  box-shadow: 0 1rpx 4rpx rgba(0, 0, 0, 0.06);
+  transition: all 0.2s ease;
+}
+
+.action-btn:active {
+  transform: scale(0.96);
+  box-shadow: 0 1rpx 6rpx rgba(0, 0, 0, 0.08);
+}
+
+.action-icon {
+  width: 20rpx;
+  height: 20rpx;
+}
+
+.star-btn.favorited .action-icon {
+  filter: sepia(1) saturate(5) hue-rotate(35deg) brightness(1.2);
+}
+
+.share-btn .action-icon {
+  opacity: 0.7;
+}
+
+/* 教授头部信息 - 更清爽的间距 */
+.prof-header {
+  padding-right: 88rpx;
+  margin-bottom: 12rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.prof-header.read-only {
+  padding-right: 0;
+}
+
+.prof-name {
+  font-size: 36rpx; /* 从32rpx增加到36rpx */
+  font-weight: 600;
+  color: #2c3e50;
+  line-height: 1.3;
+}
+
+.match-score {
+  align-self: flex-start;
+}
+
+.score-text {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-size: 24rpx; /* 从20rpx增加到24rpx */
+  font-weight: 500;
+  padding: 4rpx 12rpx;
+  border-radius: 12rpx;
+  letter-spacing: 0.3rpx;
+}
+
+/* 学院信息 - 更柔和的颜色 */
+.prof-school {
+  color: #7f8c8d;
+  font-size: 30rpx; /* 从26rpx增加到30rpx */
+  margin-bottom: 16rpx;
+  font-weight: 400;
+}
+
+/* 🎯 研究标签 - 突出显示重要标签 */
+.research-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6rpx;
+  margin-bottom: 12rpx;
+}
+
+.tag-item {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-size: 24rpx;
+  font-weight: 500;
+  padding: 6rpx 12rpx;
+  border-radius: 16rpx;
+  white-space: nowrap;
+  box-shadow: 0 2rpx 4rpx rgba(102, 126, 234, 0.3);
+}
+
+/* 研究领域标签 - 清新的配色方案 */
+.research-areas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6rpx;
+  margin-bottom: 16rpx;
+}
+
+.area-tag {
+  background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+  color: #2c3e50;
+  font-size: 26rpx; /* 从22rpx增加到26rpx */
+  font-weight: 400;
+  padding: 6rpx 12rpx;
+  border-radius: 14rpx;
+  border: none;
+  white-space: nowrap;
+  opacity: 0.9;
+}
+
+/* 亮点信息 - 更清爽的间距 */
+.highlights {
+  margin-bottom: 16rpx;
+}
+
+.highlight-item {
+  font-size: 26rpx; /* 从28rpx减少到26rpx */
+  color: #5a6c7d;
+  line-height: 1.4;
+  margin-bottom: 4rpx;
+  padding-left: 6rpx;
+  position: relative;
+}
+
+.highlight-item::before {
+  content: "•";
+  color: #bdc3c7;
+  position: absolute;
+  left: -4rpx;
+}
+
+/* 联系信息 - 更简洁的设计 */
+.contact-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+  padding-top: 10rpx;
+  border-top: 1px solid #f1f2f6;
+}
+
+.contact-item {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.contact-label {
+  color: #95a5a6;
+  font-size: 28rpx; /* 从24rpx增加到28rpx */
+  min-width: 76rpx;
+  flex-shrink: 0;
+  font-weight: 400;
+}
+
+.contact-value {
+  color: #3498db;
+  font-size: 28rpx; /* 从24rpx增加到28rpx */
+  flex: 1;
+  word-break: break-all;
+  word-wrap: break-word;
+  margin-left: 6rpx;
+  font-weight: 400;
+  max-width: calc(100% - 82rpx);
+}
+
+.contact-link {
+  color: #3498db;
+  text-decoration: underline;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.contact-link:active {
+  color: #2980b9;
+  opacity: 0.7;
+}
+
+/* 邮箱链接样式 */
+.email-link {
+  color: #27ae60;
+}
+
+.email-link:active {
+  color: #229954;
+}
+
+/* 主页链接样式 */
+.homepage-link {
+  color: #3498db;
+  display: inline-block;
+  padding: 4rpx 0;
+}
+
+/* 主页列表样式 - 更简洁清爽 */
+.homepage-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+  margin-left: 6rpx;
+  flex: 1;
+  max-width: calc(100% - 82rpx);
+}
+
+.homepage-item {
+  color: #3498db;
+  font-size: 28rpx; /* 从24rpx增加到28rpx */
+  border-bottom: 1px dotted #3498db;
+  word-break: break-all;
+  word-wrap: break-word;
+  line-height: 1.4;
+  font-weight: 400;
+}
+
+/* 空状态 - 更柔和的提示 */
+.empty-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 60rpx 20rpx;
+}
+
+.empty-text {
+  color: #bdc3c7;
+  font-size: 30rpx; /* 从26rpx增加到30rpx */
+  font-weight: 300;
+} 

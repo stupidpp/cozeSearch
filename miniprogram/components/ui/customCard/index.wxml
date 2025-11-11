@@ -1,0 +1,12 @@
+<!--components/agent-ui-new/chatFIle/chatFile.wxml-->
+<!-- <text>components/agent-ui-new/chatFIle/chatFile.wxml</text> -->
+<!-- 旧版多卡片示例已移除（天气/美食/商户等与科研无关） -->
+
+<block>
+  <!-- 已移除地图相关卡片 -->
+  <!-- 移除与科研无关的天气/美食卡片 -->
+  <view class="customCard" wx:if="{{name === 'professor_recommend'}}">
+    <custom-professor-list name="{{name}}" toolData="{{toolData}}" toolParams="{{toolParams}}"></custom-professor-list>
+  </view>
+  <!-- 用户可类似添加自定义组件 -->
+</block>

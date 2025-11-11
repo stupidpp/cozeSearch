@@ -1,0 +1,288 @@
+/* pages/favorites/favorites.wxss */
+page {
+  height: 100vh;
+  background-color: #f5f5f5;
+  overflow: hidden;
+}
+
+.favorites-container {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 搜索区域 */
+.search-section {
+  padding: 24rpx;
+  background: #ffffff;
+  margin-bottom: 20rpx;
+  flex-shrink: 0;
+}
+
+.search-box {
+  margin-bottom: 16rpx;
+}
+
+.search-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-input {
+  flex: 1;
+  height: 72rpx;
+  border-radius: 20rpx;
+  background: #e7f0fa;
+  padding: 0 100rpx 0 24rpx;
+  border: 1px solid #7a9fbf;
+  font-size: 28rpx;
+  color: #398ad1;
+}
+
+.search-input::-webkit-input-placeholder {
+  color: #e7f4fd;
+}
+
+.search-input::placeholder {
+  color: #e7f4fd;
+}
+
+.search-btn {
+  position: absolute;
+  right: 8rpx;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 56rpx;
+  width: 107rpx;
+  left: 581rpx;
+  border-radius: 12rpx;
+  background: #398ad1;
+  color: #fff;
+  border: none;
+  font-size: 26rpx;
+  font-weight: 500;
+  padding: 0 20rpx;
+  line-height: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+.tag-scroll {
+  white-space: nowrap;
+  margin-bottom: 12rpx;
+}
+
+.tag {
+  display: inline-block;
+  padding: 6rpx 16rpx;
+  margin-right: 10rpx;
+  border-radius: 32rpx;
+  border: 1px solid #e3e8f0;
+  color: #5a6c7d;
+  background: #fff;
+  font-size: 24rpx;
+  transition: all 0.2s ease;
+}
+
+.tag.active {
+  background: #f0f4ff;
+  color: #667eea;
+  border-color: #a5b4fc;
+}
+
+.sort-bar {
+  display: flex;
+  gap: 10rpx;
+}
+
+.sort-item {
+  padding: 6rpx 16rpx;
+  border-radius: 32rpx;
+  border: 1px solid #e3e8f0;
+  color: #5a6c7d;
+  background: #fff;
+  font-size: 24rpx;
+  transition: all 0.2s ease;
+}
+
+.sort-item.active {
+  background: #f0f4ff;
+  color: #667eea;
+  border-color: #a5b4fc;
+}
+
+/* 加载和空状态 */
+.loading-container,
+.empty-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 120rpx 48rpx;
+  text-align: center;
+}
+
+.loading-text {
+  font-size: 28rpx;
+  color: #999;
+}
+
+.empty-icon {
+  width: 120rpx;
+  height: 120rpx;
+  opacity: 0.3;
+  margin-bottom: 32rpx;
+}
+
+.empty-text {
+  font-size: 32rpx;
+  color: #666;
+  margin-bottom: 16rpx;
+}
+
+.empty-desc {
+  font-size: 24rpx;
+  color: #999;
+  margin-bottom: 24rpx;
+  line-height: 1.5;
+}
+
+/* 收藏列表 */
+.favorites-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 24rpx 24rpx;
+}
+
+.prof-card {
+  background: white;
+  border-radius: 16rpx;
+  padding: 32rpx 24rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+}
+
+.prof-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+
+.prof-name {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #2c3e50;
+  flex: 1;
+}
+
+.prof-actions {
+  display: flex;
+  gap: 16rpx;
+}
+
+.action-btn {
+  width: 60rpx;
+  height: 60rpx;
+  border-radius: 30rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8f9fa;
+}
+
+.action-icon {
+  width: 24rpx;
+  height: 24rpx;
+}
+
+.remove-btn {
+  background: #fee;
+}
+
+.remove-text {
+  font-size: 32rpx;
+  color: #e74c3c;
+  line-height: 1;
+}
+
+.prof-school {
+  font-size: 26rpx;
+  color: #7f8c8d;
+  margin-bottom: 16rpx;
+}
+
+.research-areas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-bottom: 16rpx;
+}
+
+.area-tag {
+  background: #e3f2fd;
+  color: #1976d2;
+  font-size: 22rpx;
+  padding: 8rpx 16rpx;
+  border-radius: 12rpx;
+}
+
+.match-score {
+  margin-bottom: 16rpx;
+}
+
+.score-text {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-size: 22rpx;
+  padding: 6rpx 12rpx;
+  border-radius: 12rpx;
+}
+
+.contact-info {
+  margin-bottom: 16rpx;
+}
+
+.contact-item {
+  display: flex;
+  margin-bottom: 8rpx;
+  font-size: 24rpx;
+}
+
+.contact-label {
+  color: #7f8c8d;
+  width: 120rpx;
+  flex-shrink: 0;
+}
+
+.contact-value {
+  color: #2c3e50;
+  flex: 1;
+}
+
+.homepage-link {
+  color: #3498db;
+  text-decoration: underline;
+}
+
+.highlights {
+  border-top: 1rpx solid #ecf0f1;
+  padding-top: 16rpx;
+}
+
+.highlights-title {
+  font-size: 24rpx;
+  color: #7f8c8d;
+  margin-bottom: 8rpx;
+}
+
+.highlight-item {
+  font-size: 24rpx;
+  color: #34495e;
+  line-height: 1.5;
+  margin-bottom: 4rpx;
+}
