@@ -3,8 +3,8 @@
   <!-- 顶部操作条 -->
   <view class="topbar {{multiSelectMode ? 'multi-select' : ''}}">
     <view wx:if="{{!multiSelectMode}}" class="topbar-left-group">
-      <view class="topbar-left" bindtap="toggleSidebar">☰</view>
-      <view class="topbar-right" bindtap="createNewConversation">＋</view>
+      <image class="menu-icon" src="/assets/icons/menu.svg" mode="aspectFit" bindtap="toggleSidebar"/>
+      <image class="add-icon" src="/assets/icons/add.svg" mode="aspectFit" bindtap="createNewConversation"/>
     </view>
     <view wx:if="{{!multiSelectMode}}" class="topbar-title">{{currentTitle || '对话'}}</view>
     <view wx:if="{{!multiSelectMode}}" class="topbar-placeholder"></view>

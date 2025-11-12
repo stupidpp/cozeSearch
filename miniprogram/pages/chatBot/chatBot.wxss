@@ -27,8 +27,8 @@ page {
   box-shadow: 0 2px 10px rgba(0,0,0,0.05);
 }
 .topbar-left-group { display: flex; align-items: center; gap: 16rpx; }
-.topbar-left { width: 48rpx; text-align:center; font-size: 40rpx; color: #5a6c7d; } /* 从36rpx增加到40rpx */
-.topbar-right { width: 48rpx; text-align:center; font-size: 40rpx; color: #5a6c7d; } /* 从36rpx增加到40rpx */
+.menu-icon {width: 60rpx;height: 60rpx;color: #5a6c7d; /* 可选：设置颜色 */}
+.add-icon {width: 52rpx;height: 52rpx;color: #5a6c7d; /* 可选：设置颜色 */}
 .topbar-title { position: absolute; left: 50%; transform: translateX(-50%); font-size: 34rpx; font-weight: 500; color:#2c3e50; } /* 从30rpx增加到34rpx */
 .topbar-placeholder {
   width: 60rpx;

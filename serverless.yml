@@ -1,0 +1,16 @@
+# serverless.yml
+component: wxcloud
+name: coze-search-agent
+inputs:
+  name: coze-search-agent
+  envId: your-env-id
+  src:
+    src: ./miniprogram
+    exclude:
+      - node_modules/**
+      - .git/**
+  functionRoot: ./cloudfunctions
+  functions:
+    - name: coze_workflow
+    - name: favorites
+    - name: search_professors
