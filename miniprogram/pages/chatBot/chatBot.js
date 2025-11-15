@@ -536,13 +536,22 @@ if (result && typeof result === 'object') {
     log(`找到搜索结果: ${searchResult[1]}`);
     content = resultStr.replace(searchResult[0], '');
     try {
-      const parsedResult = JSON.parse(searchResult[1]);
+      // 关键步骤：移除 Markdown 代码块标记和多余换行
+      const cleanJsonStr = searchResult[1]
+        .replace(/^```json\s*/i, '') // 移除开头的 ```json（忽略大小写）
+        .replace(/\s*```$/i, '')    // 移除结尾的 ```（忽略大小写）
+        .replace(/\n/g, '');        // 移除换行符（可选，视情况保留）
+      
+      const parsedResult = JSON.parse(cleanJsonStr);
+      // 注意：你的 JSON 里是 "data" 字段，不是 "result"！
       cardData = {
         type: 'professor_list',
-        professors: parsedResult.result?.professors || [],
+        professors: parsedResult.data || [], // 用 data 字段，不是 result
       };
+      log(`解析成功，共${parsedResult.data?.length || 0}位教授`);
     } catch (parseError) {
       log(`解析搜索结果失败: ${parseError.message}`);
+      cardData = null;
     }
   } else {
     content = resultStr;
