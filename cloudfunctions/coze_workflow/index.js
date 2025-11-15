@@ -1087,6 +1087,7 @@ function cleanResponseText(text, cardData) {
 function processChatStream(stream) {
   const log = (message) => { console.log(`[processChatStream] ${message}`); };
   return new Promise((resolve, _) => {
+    let fullResult = null;
     let eventBuffer = 
 
     stream.on('error', (err) => {
@@ -1096,8 +1097,10 @@ function processChatStream(stream) {
 
     stream.on('end', () => {
       // 流被中断
+      const result = fullResult;
       log('Stream ended.');
-      resolve(null);
+      log(result.content);
+      resolve(result);
     });
 
     const takeEvent = () => {
@@ -1127,7 +1130,9 @@ function processChatStream(stream) {
         // completed
         case 'conversation.message.completed':
           let data = JSON.parse(eventData);
+          fullResult=data;
           log(`conversation.message.completed, data: ${JSON.stringify(data)}`);
+          log(data.type);
           if (data.type != 'answer') break;
           resolve(data.content);
           break;
@@ -1135,8 +1140,13 @@ function processChatStream(stream) {
         case 'conversation.chat.completed': break;
         case 'done': break;
         case 'conversation.chat.created': break;
-        case 'conversation.message.delta': break;
+        case 'conversation.message.delta': 
+        let data1 = JSON.parse(eventData);
+        log(`conversation.message.delta, data1: ${JSON.stringify(data1)}`);
+        break;
+
         case 'conversation.chat.in_progress': break;
+        case 'ping':break;
         // unknown event
         default: 
           log(`unknown event: ${eventName}, data: ${eventData}`);
@@ -1210,12 +1220,33 @@ exports.main = async (event) => {
   const stream = response.data;
 
   const result = await processChatStream(stream);
+log("结果result:",result);
+// 在这里处理搜索结果等逻辑
+let finalResult = result;
+let cardData = null;
 
+// 处理 <search_result> 标签
+const searchResult = result.match(/<search_result>(.*?)<\/search_result>/s);
+if (searchResult && searchResult.length > 0) {
+  finalResult = result.replace(searchResult[0], '');
+  try {
+    cardData = {
+      type: 'professor_list',
+      professors: JSON.parse(searchResult[1]).result.professors,
+    };
+  } catch (e) {
+    console.error('解析搜索结果失败:', e);
+  }
+}
   if (!result) {
     return { code: 500, message: 'internal error' };
   }
 
-  return { code: 0, data: result };
+  return { code: 0, 
+    data:{
+      content: finalResult,
+      cardData: cardData
+    } };
 
   try {
     // ----------------------------------------------------------------

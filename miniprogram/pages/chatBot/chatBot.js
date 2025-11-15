@@ -517,45 +517,66 @@ Page({
       
       // 立即清理所有loading消息，并在清理完成后添加助手回复
       await this.clearAllLoadingMessages();
+// 直接从返回结果中提取内容和卡片数据
+let content = '';
+let cardData = null;
 
-      // extract and delete <search_result>...</search_result> from result
-      const searchResult = result.match(/<search_result>(.*?)<\/search_result>/s);
-      let cardData = null;
-      if (searchResult && searchResult.length > 0) {
-        log(`找到搜索结果: ${searchResult[1]}`);
-        result = result.replace(searchResult[0], '');
-        cardData = {
-          type: 'professor_list',
-          professors: JSON.parse(searchResult[1]).result.professors,
-        }
-      } else {
-        log(`未找到搜索结果`);
-      }
-
-      this.addMessage({
-        type: 'assistant',
-        content: result || '抱歉，暂时无法获取回复，请稍后重试。',
-        cardData
-      });
-
-      // 保存对话到历史记录
-      this.saveConversationToHistory();
-      
-    } catch (error) {
-      console.error('调用工作流失败:', error);
-      
-      // 清理loading消息
-      await this.clearAllLoadingMessages();
-      
-      // 添加错误提示消息
-      this.addMessage({
-        type: 'assistant',
-        content: '抱歉，服务暂时不可用，请稍后重试。',
-      });
-    } finally {
-      // 确保无论成功失败都重置发送状态
-      this.setData({ sending: false, inputFocus: true });
+if (result && typeof result === 'object') {
+  // 如果返回的是对象格式，直接使用其中的content和cardData
+  content = result.content || '';
+  cardData = result.cardData || null;
+} else {
+  // 如果是字符串格式，按原来的方式处理
+  const resultStr = String(result);
+  log(`result类型: ${typeof resultStr}, 原始值: ${resultStr}`);
+  
+  // 尝试匹配 <search_result> 标签（向后兼容）
+  const searchResult = resultStr.match(/<search_result>([\s\S]*?)<\/search_result>/);
+  if (searchResult && searchResult[1]) {
+    log(`找到搜索结果: ${searchResult[1]}`);
+    content = resultStr.replace(searchResult[0], '');
+    try {
+      const parsedResult = JSON.parse(searchResult[1]);
+      cardData = {
+        type: 'professor_list',
+        professors: parsedResult.result?.professors || [],
+      };
+    } catch (parseError) {
+      log(`解析搜索结果失败: ${parseError.message}`);
     }
+  } else {
+    content = resultStr;
+    log(`未找到搜索结果`);
+  }
+}
+
+this.addMessage({
+  type: 'assistant',
+  content: content || '抱歉，暂时无法获取回复，请稍后重试。',
+  cardData: cardData
+});
+
+// 保存对话到历史记录
+this.saveConversationToHistory();
+
+} catch (error) {
+console.error('调用工作流失败:', error);
+
+// 清理loading消息
+await this.clearAllLoadingMessages();
+
+// 添加错误提示消息
+this.addMessage({
+  type: 'assistant',
+  content: '抱歉，服务暂时不可用，请稍后重试。',
+});
+} finally {
+// 确保无论成功失败都重置发送状态
+this.setData({ sending: false, inputFocus: true });
+}
+      
+
+     
   },
 
   // 调用扣子智能体
