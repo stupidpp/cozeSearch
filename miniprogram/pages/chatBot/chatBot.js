@@ -499,7 +499,9 @@ Page({
     const userMsgId = this.addMessage({
       type: 'user',
       content: input,
+      
     });
+    console.log(`当前使用的conversation_id: ${this.data.currentCid}`);
 
     // 添加加载消息
     const loadingMsgId = this.addMessage({
@@ -520,11 +522,13 @@ Page({
 // 直接从返回结果中提取内容和卡片数据
 let content = '';
 let cardData = null;
+let conversationId = '';
 
 if (result && typeof result === 'object') {
   // 如果返回的是对象格式，直接使用其中的content和cardData
   content = result.content || '';
   cardData = result.cardData || null;
+  conversationId = result.conversation_id || '';
 } else {
   // 如果是字符串格式，按原来的方式处理
   const resultStr = String(result);
@@ -558,7 +562,11 @@ if (result && typeof result === 'object') {
     log(`未找到搜索结果`);
   }
 }
-
+// 保存返回的对话ID到页面数据中，供下一次调用使用
+if (conversationId) {
+  this.setData({ currentCid: conversationId });
+  log(`已保存新的conversation_id: ${conversationId}`);
+}
 this.addMessage({
   type: 'assistant',
   content: content || '抱歉，暂时无法获取回复，请稍后重试。',
@@ -592,14 +600,16 @@ this.setData({ sending: false, inputFocus: true });
   callCozeWorkflow: function(userInput) {
     const log = (message) => { console.log(`[callCozeWorkflow] ${message}`); };
     const conversation_id = this.data.currentCid || '';
+    log(`当前id: ${conversation_id}`);
     // TODO: 多轮对话
-    log(`conversation_id: ${conversation_id}`);
+    
 
     const cozeWorkflow = new Promise((resolve, _) => {
       wx.cloud.callFunction({
         name: 'coze_workflow',
         data: {
-          input: userInput
+          input: userInput,
+          conversation_id: conversation_id // 传递对话ID
         }
       }).then((res) => {
         resolve(res);
@@ -608,6 +618,12 @@ this.setData({ sending: false, inputFocus: true });
 
     return (async () => {
       let result = await cozeWorkflow;
+      if (!result || !result.result || !result.result.data) {
+        console.error('云函数返回结果异常:', result);
+        throw new Error('云函数返回数据格式不正确');
+      }
+      const conversationId = result.result.data.conversation_id;
+      console.log(`API返回的新conversation_id: ${conversationId}`);
       log(`callCozeWorkflow result: ${JSON.stringify(result)}`);
       
       if (result.errMsg != 'cloud.callFunction:ok') {
@@ -692,9 +708,9 @@ this.setData({ sending: false, inputFocus: true });
     const progressInterval = setInterval(function() {
       if (progress < maxProgress) {
         // 前期快速增长，后期缓慢
-        const increment = progress < 30 ? Math.random() * 4 + 2 : 
+        const increment = (progress < 30 ? Math.random() * 4 + 2 : 
                          progress < 60 ? Math.random() * 2 + 1 : 
-                         Math.random() + 0.5;
+                         Math.random() + 0.5)*3;
         
         progress = Math.min(progress + increment, maxProgress);
         

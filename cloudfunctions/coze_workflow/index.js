@@ -76,7 +76,7 @@ async function callCozeAndGetAnswer(input, conversation_id, config, maxRetries =
       if (resp.status !== 200 || !resp.data?.data?.id) {
         throw new Error(`发起Chat失败: ${resp.status} - ${resp.data?.error?.message || '未知错误'}`);
       }
-
+ 
       const chat_id = resp.data.data.id;
       const conv_id = resp.data.data.conversation_id;
       let chatStatus = resp.data.data.status;
@@ -1099,7 +1099,11 @@ function processChatStream(stream) {
       // 流被中断
       const result = fullResult;
       log('Stream ended.');
-      log(result.content);
+      if (result) {
+        log(result.content); // 仅当 result 非 null/undefined 时执行
+      } else {
+        log('Stream has no data.'); // 无数据时的处理
+      }
       resolve(result);
     });
 
@@ -1134,7 +1138,22 @@ function processChatStream(stream) {
           log(`conversation.message.completed, data: ${JSON.stringify(data)}`);
           log(data.type);
           if (data.type != 'answer') break;
-          resolve(data.content);
+          
+          
+          // 使用 then() 链式调用，确保最终结果被处理
+      Promise.resolve(data.content)
+      .then(content => {
+        // 在这里可以安全地访问 fullResult
+        const conversationId = fullResult.conversation_id;
+        console.log(`API返回的新conversation_id: ${conversationId}`);
+        
+        // 返回完整结果
+        return { content, conversation_id: conversationId };
+      })
+      .then(finalResult => {
+        resolve(finalResult);
+      });
+          
           break;
         // ignored
         case 'conversation.chat.completed': break;
@@ -1192,7 +1211,7 @@ exports.main = async (event) => {
     'Content-Type': 'application/json'
   };
 
-  const url = "https://api.coze.cn/v3/chat";
+  let url = "https://api.coze.cn/v3/chat";
   if (typeof conversation_id === 'string' && conversation_id.length > 0) {
     url += `?conversation_id=${conversation_id}`;
   }
@@ -1219,303 +1238,108 @@ exports.main = async (event) => {
 
   const stream = response.data;
 
-  const result = await processChatStream(stream);
-log("结果result:",result);
-// 在这里处理搜索结果等逻辑
-let finalResult = result;
+  const fullResult= await processChatStream(stream);
+
+// 声明变量
+let finalResult = '';
 let cardData = null;
 
 // 处理 <search_result> 标签
-const searchResult = result.match(/<search_result>(.*?)<\/search_result>/s);
-if (searchResult && searchResult.length > 0) {
-  finalResult = result.replace(searchResult[0], '');
-  try {
-    cardData = {
-      type: 'professor_list',
-      professors: JSON.parse(searchResult[1]).result.professors,
+if (!fullResult) {
+  console.log('结果为空');
+  finalResult = '';
+} else if (typeof fullResult === 'string') {
+  // 使用正则表达式方法，更健壮
+  const parseSearchResult = (content) => {
+    const result = {
+      textContent: '',
+      cardData: null
     };
-  } catch (e) {
-    console.error('解析搜索结果失败:', e);
-  }
-}
-  if (!result) {
-    return { code: 500, message: 'internal error' };
-  }
-
-  return { code: 0, 
-    data:{
-      content: finalResult,
-      cardData: cardData
-    } };
-
-  try {
-    // ----------------------------------------------------------------
-    // 步骤 1: 首次宽泛提问
-    // ----------------------------------------------------------------
-    console.log('=== 步骤 1: 开始首次宽泛提问 ===');
-    const initialResponseText = await callCozeAndGetAnswer(input, conversation_id, apiConfig);
-
-    if (!initialResponseText || isIrrelevantResponse(initialResponseText)) {
-      console.log('首次回复为空或为无关提问，流程终止。');
-      const response_text = isIrrelevantResponse(initialResponseText) ? '抱歉，我们无法为您提供相关内容的回答，请问您有什么科研合作需求？' : '抱歉，暂时无法获取回复，请稍后重试。';
-      return { code: 0, data: { response_text, card_data: null, conversation_id } };
-    }
-
-    // ----------------------------------------------------------------
-    // 步骤 2: 初步解析，仅提取教授姓名和研究亮点
-    // ----------------------------------------------------------------
-    console.log('=== 步骤 2: 初步解析教授姓名和亮点 ===');
-    const initialProfessors = extractProfessorNamesAndHighlights(initialResponseText, input);
-
-    if (initialProfessors.length === 0) {
-      console.log('未从首次回复中解析到教授，返回纯文本。');
-      return { code: 0, data: { response_text: cleanResponseText(initialResponseText), card_data: null, conversation_id } };
-    }
-
-    // 🚀 执行完整的两轮询问流程：
-    // 第1轮：从初次AI回答中解析研究方向、研究成果、研究内容
-    // 第2轮：对每个教授串行询问详细信息（邮箱、主页、电话、学院等）
-
-    // ----------------------------------------------------------------
-    // 步骤 3 & 4: 并发进行“循环精准追问”和“数据库查询”
-    // ----------------------------------------------------------------
-    console.log(`=== 步骤 3 & 4: 对 ${initialProfessors.length} 位教授进行串行信息增强 ===`);
-    const enrichedProfessors = [];
-    const maxProcessingTime = 45000; // 最大处理时间45秒，避免云函数超时
-    const processingStartTime = Date.now();
     
-    for (let index = 0; index < initialProfessors.length; index++) {
-      // 检查是否已经接近超时
-      if (Date.now() - processingStartTime > maxProcessingTime) {
-        console.log(`⏰ 处理时间接近上限，跳过剩余 ${initialProfessors.length - index} 位教授的详细查询`);
-        // 将剩余教授添加为基础信息
-        for (let remainingIndex = index; remainingIndex < initialProfessors.length; remainingIndex++) {
-          const remainingProf = initialProfessors[remainingIndex];
-          enrichedProfessors.push({
-            name: remainingProf.name,
-            highlights: remainingProf.highlights || [],
-            areas: remainingProf.areas || [],
-            matchScore: remainingProf.matchScore || 0,
-            tags: remainingProf.tags || [],
-            school: '待查询',
-            profId: `prof_timeout_${Date.now()}_${remainingIndex}`,
-            score: remainingProf.matchScore || 60,
-            displayScore: remainingProf.matchScore || 60
-          });
-        }
-        break;
-      }
-      const baseProf = initialProfessors[index];
-      console.log(`\n🔍 [${index + 1}/${initialProfessors.length}] 开始第2轮询问: ${baseProf.name}`);
+    // 使用正则表达式匹配search_result标签
+    const searchResultRegex = /<search_result>([\s\S]*?)<\/search_result>/;
+    const match = content.match(searchResultRegex);
+    
+    if (match) {
+      // 提取文本内容（search_result标签之前的部分）
+      result.textContent = content.substring(0, match.index).trim();
+      
+      // 提取JSON数据
+      const jsonContent = match[1].trim();
       
       try {
-        // 🎯 第2轮专门询问联系信息的prompt - 更明确的要求
-        const contactQuestion = `请帮我查找${baseProf.name}教授的具体联系方式，我需要以下信息：
-
-1. 学院：${baseProf.name}教授所在的具体学院或系部名称
-2. 邮箱：${baseProf.name}教授的工作邮箱地址
-3. 个人主页：${baseProf.name}教授的个人网站或主页链接
-4. 联系电话：${baseProf.name}教授的办公电话
-5. 办公地点：${baseProf.name}教授的办公室具体位置
-
-请直接提供这些信息，格式如：
-学院：xxx学院
-邮箱：xxx@zju.edu.cn
-个人主页：https://person.zju.edu.cn/xxx
-联系电话：xxx
-办公地点：xxx`;
-
-        // 🎯 优先尝试数据库查询，减少对外部AI的依赖
-        console.log(`🔍 优先从数据库查询 ${baseProf.name} 的联系信息...`);
-        let contactInfo = {};
-        let skipAICall = false;
-        
-        try {
-          const dbRes = await queryProfessorsFromDatabase(baseProf.name, initialResponseText);
-          if (dbRes && dbRes.professors && dbRes.professors.length > 0) {
-            const dbProf = dbRes.professors[0];
-            console.log(`✅ 数据库优先查询命中 ${dbProf.name}`);
-            contactInfo = {
-              school: dbProf.school || '待查询',
-              email: dbProf.email || '',
-              homepages: dbProf.homepages || [],
-              phone: dbProf.phone || '',
-              office: dbProf.office || ''
-            };
-            
-            // 检查数据库提供的信息是否足够完整
-            const hasEmail = !!contactInfo.email;
-            const hasHomepages = contactInfo.homepages && contactInfo.homepages.length > 0;
-            const hasSchool = contactInfo.school && contactInfo.school !== '待查询' && contactInfo.school !== '未知学院';
-            
-            if (hasEmail && hasSchool && hasHomepages) {
-              skipAICall = true;
-              console.log(`🎯 数据库信息足够完整，跳过AI调用`, { school: contactInfo.school, email: contactInfo.email, homepages: contactInfo.homepages });
-            } else {
-              console.log(`⚠️ 数据库信息不完整，将继续AI调用作为补充`, { hasEmail, hasSchool, hasHomepages });
-            }
-          } else {
-            console.log(`ℹ️ 数据库未命中 ${baseProf.name}，将进行AI调用`);
-          }
-        } catch (dbErr) {
-          console.error(`❌ 数据库查询失败，将进行AI调用:`, dbErr && dbErr.message ? dbErr.message : dbErr);
-        }
-        
-        let contactResponseText = '';
-        if (!skipAICall) {
-          console.log(`向扣子AI询问 ${baseProf.name} 的联系信息...`);
-          try {
-            // 为每个教授使用独立的conversation_id以避免干扰
-            const independentConversationId = null; // 使用null会创建新的对话
-            contactResponseText = await callCozeAndGetAnswer(contactQuestion, independentConversationId, apiConfig, 2);
-            console.log(`收到第2轮回复，长度: ${contactResponseText ? contactResponseText.length : 0}`);
-            console.log(`回复内容预览: ${contactResponseText ? contactResponseText.substring(0, 300) : '无回复'}...`);
-
-            // 从第2轮回复中解析联系信息
-            console.log(`开始解析 ${baseProf.name} 的联系信息...`);
-            const aiContactInfo = parseDetailedInfo(contactResponseText);
-            
-            // 合并数据库和AI的结果，AI优先但用数据库作为补充
-            contactInfo = {
-              school: aiContactInfo.school || contactInfo.school || '待查询',
-              email: aiContactInfo.email || contactInfo.email || '',
-              homepages: (aiContactInfo.homepages && aiContactInfo.homepages.length > 0) ? aiContactInfo.homepages : (contactInfo.homepages || []),
-              phone: aiContactInfo.phone || contactInfo.phone || '',
-              office: aiContactInfo.office || contactInfo.office || ''
-            };
-          } catch (aiErr) {
-            console.error(`❌ AI调用失败，使用数据库结果:`, aiErr && aiErr.message ? aiErr.message : aiErr);
-            // contactInfo已经从数据库获取，无需额外处理
-          }
-        }
-        
-        console.log(`解析结果:`, contactInfo);
-        
-        // 🎯 合并信息：第1轮的研究信息 + 第2轮的联系信息
-        console.log(`🔄 合并 ${baseProf.name} 的信息:`);
-        console.log(`   第1轮研究信息: highlights=${baseProf.highlights?.length || 0}条, areas=${baseProf.areas?.length || 0}个`);
-        console.log(`   第2轮联系信息: school=${contactInfo.school || '无'}, email=${contactInfo.email || '无'}`);
-        
-        const finalProf = {
-          name: baseProf.name,
-          // 第1轮解析的研究信息（研究方向、研究成果、研究内容）
-          highlights: baseProf.highlights || [], 
-          areas: baseProf.areas || [], 
-          matchScore: baseProf.matchScore || 0,
-          tags: baseProf.tags || [],
-          // 第2轮解析的联系信息
-          school: contactInfo.school || '待查询',
-          office: contactInfo.office || '',
-          email: contactInfo.email || '',
-          phone: contactInfo.phone || '',
-          homepages: contactInfo.homepages || [],
-          profId: `prof_${Date.now()}_${index}`,
-          score: baseProf.matchScore || 60,
-          displayScore: baseProf.matchScore || 60
+        const parsedData = JSON.parse(jsonContent);
+        result.cardData = {
+          type: 'professor_list',
+          professors: parsedData.result?.professors || []
         };
-        
-        console.log(`📦 最终教授信息:`, {
-          name: finalProf.name,
-          school: finalProf.school,
-          email: finalProf.email,
-          homepages: finalProf.homepages,
-          highlights: finalProf.highlights.length,
-          areas: finalProf.areas.length
-        });
-        
-        // 清理空字段
-        Object.keys(finalProf).forEach(key => {
-            if (finalProf[key] === '' || (Array.isArray(finalProf[key]) && finalProf[key].length === 0)) {
-                delete finalProf[key];
-            }
-        });
-
-        enrichedProfessors.push(finalProf);
-        
-        console.log(`✅ [${baseProf.name}] 第2轮询问完成:`);
-        console.log(`   - 学院: ${finalProf.school || '未获取'}`);
-        console.log(`   - 邮箱: ${finalProf.email || '未获取'}`);
-        console.log(`   - 主页: ${finalProf.homepages?.length > 0 ? finalProf.homepages[0] : '未获取'}`);
-        console.log(`   - 电话: ${finalProf.phone || '未获取'}`);
-        console.log(`   - 办公地点: ${finalProf.office || '未获取'}`);
-        
-        // 🎯 串行处理：问完一个再问下一个，确保质量
-        if (index < initialProfessors.length - 1) {
-          console.log(`⏳ 等待1秒后询问下一位教授...`);
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-        
-        } catch (error) {
-        console.error(`❌ 第2轮询问 ${baseProf.name} 时发生错误:`, error);
-        // 即使第2轮询问失败，也保留第1轮的研究信息，并尝试使用数据库备用信息
-        let fallbackContactInfo = {};
-        try {
-          const dbRes = await queryProfessorsFromDatabase(baseProf.name, initialResponseText);
-          if (dbRes && dbRes.professors && dbRes.professors.length > 0) {
-            const dbProf = dbRes.professors[0];
-            fallbackContactInfo = {
-              school: dbProf.school || '待查询',
-              email: dbProf.email || '',
-              homepages: dbProf.homepages || [],
-              phone: dbProf.phone || '',
-              office: dbProf.office || ''
-            };
-            console.log(`✅ 使用数据库备用信息: ${dbProf.name}`);
-          }
-        } catch (dbErr) {
-          console.log(`⚠️ 数据库备用查询也失败，使用占位符`);
-        }
-        
-        enrichedProfessors.push({
-          name: baseProf.name,
-          highlights: baseProf.highlights || [],
-          areas: baseProf.areas || [],
-          matchScore: baseProf.matchScore || 0,
-          tags: baseProf.tags || [],
-          school: fallbackContactInfo.school || '待查询',
-          email: fallbackContactInfo.email || '',
-          homepages: fallbackContactInfo.homepages || [],
-          phone: fallbackContactInfo.phone || '',
-          office: fallbackContactInfo.office || '',
-          profId: `prof_error_${Date.now()}_${index}`,
-          score: baseProf.matchScore || 60,
-          displayScore: baseProf.matchScore || 60
-        });
+      } catch (e) {
+        console.error('解析JSON失败:', e);
+        // 如果JSON解析失败，保留完整的文本内容
+        result.textContent = content;
       }
+    } else {
+      // 如果没有search_result标签，使用完整内容
+      result.textContent = content;
     }
-
-    // ----------------------------------------------------------------
-    // 步骤 4: 构建最终返回结果
-    // ----------------------------------------------------------------
-    const card_data = {
-      type: "professor_list",
-      professors: enrichedProfessors
+    
+    return result;
+  };
+  
+  const parsedResult = parseSearchResult(fullResult);
+  finalResult = parsedResult.textContent;
+  cardData = parsedResult.cardData;
+} else if (typeof fullResult === 'object' && fullResult.content) {
+  // 如果返回的是对象，处理content中的<search_result>标签
+  const parseSearchResult = (content) => {
+    const result = {
+      textContent: '',
+      cardData: null
     };
-
-    // 🎯 调试日志：检查最终返回数据
-    console.log(`🔍 最终返回数据检查:`);
-    enrichedProfessors.forEach((prof, index) => {
-      console.log(`教授${index + 1}: ${prof.name}, 匹配度: ${prof.matchScore}%, 标签数: ${prof.tags ? prof.tags.length : 0}`);
-    });
-
-    const endTime = Date.now();
-    console.log(`✅ 全部处理完成, 总耗时: ${endTime - startTime}ms`);
-
-    return {
-      code: 0,
-      data: {
-        response_text: '', // 在卡片模式下，通常不返回主文本
-        card_data: card_data,
-        conversation_id: conversation_id,
-        processing_time: endTime - startTime
+    
+    const searchResultRegex = /<search_result>([\s\S]*?)<\/search_result>/;
+    const match = content.match(searchResultRegex);
+    
+    if (match) {
+      result.textContent = content.substring(0, match.index).trim();
+      const jsonContent = match[1].trim();
+      
+      try {
+        const parsedData = JSON.parse(jsonContent);
+        result.cardData = {
+          type: 'professor_list',
+          professors: parsedData.result?.professors || []
+        };
+      } catch (e) {
+        console.error('解析JSON失败:', e);
+        result.textContent = content;
       }
-    };
+    } else {
+      result.textContent = content;
+    }
+    
+    return result;
+  };
+  
+  const parsedResult = parseSearchResult(fullResult.content);
+  finalResult = parsedResult.textContent;
+  cardData = parsedResult.cardData;
+}
 
-  } catch (e) {
-    console.error('=== 主流程发生严重错误 ===', e);
-    return {
-      code: 500,
-      message: 'An unexpected error occurred: ' + e.message,
-    };
-  }
+// 确保 conversation_id 正确获取
+const conversationId = fullResult && fullResult.conversation_id ? fullResult.conversation_id : '';
+log(`conversationId: ${conversationId}`);
+
+if (!fullResult) {
+  return { code: 500, message: 'internal error' };
+}
+
+return { 
+  code: 0, 
+  data: {
+    conversation_id: conversationId,
+    content: finalResult,
+    cardData: cardData
+  } 
+};
 };
