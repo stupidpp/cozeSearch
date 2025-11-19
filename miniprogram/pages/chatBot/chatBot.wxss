@@ -618,7 +618,7 @@ page {
   transform: translateY(-50%);
   width: 48rpx !important;
   height: 48rpx !important;
-  background: #3498db !important;
+  background: #90EE90 !important;  
   border: none !important;
   border-radius: 50% !important;
   display: flex !important;
@@ -626,15 +626,16 @@ page {
   justify-content: center !important;
   margin: 0 !important;
   padding: 0 !important;
-  box-shadow: 0 1rpx 4rpx rgba(52, 152, 219, 0.2) !important;
+  box-shadow: 0 1rpx 4rpx rgba(39,174,96, 0.2) !important;
   z-index: 101;
   font-size: 22rpx !important;
   line-height: 1 !important;
   min-height: auto !important;
   cursor: pointer;
+  transition: background-color 0.3s ease; /* 平滑过渡效果 */
 }
 
-.send-btn.disabled {
+.send-btn[disabled] {
   background: #ddd !important;
   /* 移除 pointer-events: none; 允许点击调试 */
   box-shadow: none !important;

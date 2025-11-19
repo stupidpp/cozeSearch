@@ -128,11 +128,11 @@
       </view>
       <view class="welcome-desc-section">
         <text class="welcome-desc" style="position: relative; left: 0rpx; top: 86rpx">告诉我你的研究方向或业务场景，我会从教师知识库中匹配3–5位最合适的教授，并给出匹配理由与联系方式。</text>
+        <text class="welcome-desc" style="position: relative; left: 0rpx; top: 86rpx">你可以这样问：</text>
       </view>
       <view class="welcome-examples">
-        <text class="example-title" style="position: relative; left: 0rpx; top: 56rpx">你可以这样问：</text>
         <view class="example-item" bindtap="onExampleTap" data-text="我想找计算机视觉/大模型方向的合作教授，偏工程落地" style="position: relative; left: 0rpx; top: 63rpx">我想找计算机视觉/大模型方向的合作教授，偏工程落地</view>
-        <view class="example-item" bindtap="onExampleTap" data-text="新能源电池热管理需要顾问，推荐几位" style="position: relative; left: 0rpx; top: 86rpx">新能源电池热管理需要顾问，推荐几位</view>
+        <view class="example-item" bindtap="onExampleTap" data-text="我希望在新能源电池热管理领域获得咨询和指导，帮我推荐几位教授" style="position: relative; left: 0rpx; top: 86rpx">我希望在新能源电池热管理领域获得咨询和指导，帮我推荐几位教授</view>
         <view class="example-item" bindtap="onExampleTap" data-text="医学影像+多模态AI，有哪些合适的老师？" style="position: relative; left: 0rpx; top: 102rpx">医学影像+多模态AI，有哪些合适的老师？</view>
       </view>
     </view>
@@ -186,6 +186,8 @@
              value="{{inputValue}}" 
              placeholder="请描述您的科研需求..." 
              bindinput="onInput"
+             bindfocus="onInputFocus"
+             bindblur="onInputBlur"
              focus="{{inputFocus}}"
              disabled="{{sending}}"
              auto-height="true"
@@ -194,10 +196,12 @@
              adjust-position="{{true}}"
              cursor-spacing="{{20}}" />
       <!-- 发送按钮 -->
-      <view class="send-btn {{inputValue.trim() && !sending ? '' : 'disabled'}}" 
-              bindtap="onSend">
-        <image class="send-icon" src="../../assets/icons/send.svg" mode="aspectFit"/>
-      </view>
+      <!-- 发送按钮 -->
+<button class="send-btn" 
+disabled="{{!inputFocus || sending}}"
+bindtap="onSend">
+<image class="send-icon" src="../../assets/icons/send.svg" mode="aspectFit"/>
+</button>
     </view>
   </view>
 

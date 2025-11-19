@@ -42,6 +42,20 @@ Page({
     // 收藏数据
     favoritesList: []
   },
+  
+  // 输入框失去焦点时触发
+  onInputBlur: function() {
+    this.setData({
+      inputFocus: false
+    });
+  },
+  // 输入框获得焦点时触发
+  onInputFocus: function() {
+    this.setData({
+      inputFocus: true
+    });
+  },
+
   onFabChange: function(e){
     const detail = e.detail || {};
     const x = detail.x;
@@ -491,7 +505,7 @@ Page({
     const log = (message) => { console.log(`[onSend] ${message}`); };
     const input = this.data.inputValue.trim();
     if (!input || this.data.sending) return;
-
+    console.log(`当前sending状态: ${this.data.sending}`);
     this.hideAllDeleteOptions();
     this.setData({ sending: true, inputValue: '', inputFocus: false });
 
@@ -590,6 +604,7 @@ this.addMessage({
 } finally {
 // 确保无论成功失败都重置发送状态
 this.setData({ sending: false, inputFocus: true });
+console.log('sending状态已重置为false');
 }
       
 
@@ -610,7 +625,8 @@ this.setData({ sending: false, inputFocus: true });
         data: {
           input: userInput,
           conversation_id: conversation_id // 传递对话ID
-        }
+        },
+        timeout: 300000
       }).then((res) => {
         resolve(res);
       });
@@ -710,7 +726,7 @@ this.setData({ sending: false, inputFocus: true });
         // 前期快速增长，后期缓慢
         const increment = (progress < 30 ? Math.random() * 4 + 2 : 
                          progress < 60 ? Math.random() * 2 + 1 : 
-                         Math.random() + 0.5)*3;
+                         Math.random() + 0.5)*10;
         
         progress = Math.min(progress + increment, maxProgress);
         
