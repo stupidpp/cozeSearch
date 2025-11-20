@@ -206,7 +206,7 @@ Page({
   // 直接创建新会话，不弹窗
   createNewConversation: function(){
     this.hideAllDeleteOptions();
-    const cid = 'c_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11);
+    const cid = '';
     const conv = { conversationId: cid, title: '新对话', lastMsg: '', updatedAt: Date.now() };
     const list = [conv].concat(this.data.conversations || []);
     
@@ -618,6 +618,9 @@ console.log('sending状态已重置为false');
     log(`当前id: ${conversation_id}`);
     // TODO: 多轮对话
     
+// 获取对话历史上下文（最多保留最近10轮对话）
+const conversationHistory = this.getConversationHistoryForAPI();
+    
 
     const cozeWorkflow = new Promise((resolve, _) => {
       wx.cloud.callFunction({
@@ -654,7 +657,26 @@ console.log('sending状态已重置为false');
       return result.data;
     })();
   },
-
+ // 获取对话历史用于API调用（保留最近10轮对话）
+ getConversationHistoryForAPI: function() {
+  const messages = this.data.messages || [];
+  const validMessages = messages.filter(msg => 
+    msg.type === 'user' || msg.type === 'assistant'
+  );
+  
+  // 限制历史记录数量，保留最近10轮对话（5对问答）
+  const maxHistory = 10;
+  const recentMessages = validMessages.slice(-maxHistory);
+  
+  // 格式化历史消息为API需要的格式
+  const history = recentMessages.map(msg => ({
+    role: msg.type === 'user' ? 'user' : 'assistant',
+    content: msg.content || ''
+  }));
+  
+  console.log(`准备传递对话历史: ${history.length}条消息`);
+  return history;
+},
   // 添加消息
   addMessage: function(msg) {
     const id = 'm_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11);
@@ -726,7 +748,7 @@ console.log('sending状态已重置为false');
         // 前期快速增长，后期缓慢
         const increment = (progress < 30 ? Math.random() * 4 + 2 : 
                          progress < 60 ? Math.random() * 2 + 1 : 
-                         Math.random() + 0.5)*10;
+                         Math.random() + 0.5);
         
         progress = Math.min(progress + increment, maxProgress);
         
@@ -1117,11 +1139,10 @@ console.log('sending状态已重置为false');
       
       // 确保有当前会话ID，如果没有则创建
       let currentCid = this.data.currentCid;
+      //第一次为空，等待第二次会话返回
       if (!currentCid) {
-        currentCid = 'c_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11);
-        this.setData({ currentCid: currentCid });
-        const currentCidKey = userManager.getUserCurrentCidKey();
-        wx.setStorageSync(currentCidKey, currentCid);
+        console.log('当前会话ID为空，等待智能体返回真正的conversation_id');
+        return; // 直接返回，不保存到历史记录
       }
       
       const messages = this.data.messages;

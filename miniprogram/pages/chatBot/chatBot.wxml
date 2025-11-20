@@ -22,12 +22,12 @@
   <view wx:if="{{sidebarOpen}}" class="sidebar-mask" bindtap="toggleSidebar"></view>
   <view class="sidebar {{sidebarOpen ? 'open' : ''}}">
     <scroll-view class="sidebar-list" scroll-y="true">
-      <!-- 联系我们置顶条目 -->
+      <!-- 联系我们置顶条目 
       <view class="conv-item contact-us-item" bindtap="showContactUs">
         <view class="conv-title">联系我们</view>
         <view class="conv-sub">查看联系方式</view>
         <view class="conv-time">置顶</view>
-      </view>
+      </view>-->
 
       <!-- 收藏中心区域 -->
       <view class="sidebar-section">
