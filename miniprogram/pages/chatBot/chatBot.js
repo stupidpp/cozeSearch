@@ -627,8 +627,10 @@ const conversationHistory = this.getConversationHistoryForAPI();
         name: 'coze_workflow',
         data: {
           input: userInput,
-          conversation_id: conversation_id // 传递对话ID
-        },
+          conversation_id: conversation_id,// 传递对话ID
+          conversation_history: conversationHistory // 新增：传递对话历史
+  } ,
+          
         timeout: 300000
       }).then((res) => {
         resolve(res);
@@ -664,8 +666,8 @@ const conversationHistory = this.getConversationHistoryForAPI();
     msg.type === 'user' || msg.type === 'assistant'
   );
   
-  // 限制历史记录数量，保留最近10轮对话（5对问答）
-  const maxHistory = 10;
+  // 限制历史记录数量，保留最近12轮对话（6对问答）
+  const maxHistory = 12;
   const recentMessages = validMessages.slice(-maxHistory);
   
   // 格式化历史消息为API需要的格式
