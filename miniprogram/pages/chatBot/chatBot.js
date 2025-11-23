@@ -1,8 +1,6 @@
 // pages/chatBot/chatBot.js
 const userManager = require('../../utils/userManager');
-const { OpenAI } = require('langchain/llms/openai');
-const { BufferMemory } = require('langchain/memory');
-const { ConversationChain } = require('langchain/chains');
+
 
 Page({
   /**
@@ -76,7 +74,7 @@ Page({
    * 生命周期函数--监听页面加载
    */
   onLoad: function(options) {
-    this.initLangChain();
+   
     // 默认定位到输入区"+"号上方一点
     const { windowWidth, windowHeight } = wx.getWindowInfo();
     const defaultX = windowWidth - 120;
@@ -109,23 +107,7 @@ Page({
     }
     if (!this.data.fabX || !this.data.fabY) this.setData({ fabX: defaultX, fabY: defaultY });
   },
-// 初始化LangChain
-async initLangChain() {
-  // 注意：小程序中需要使用云函数或HTTP请求调用OpenAI API
-  // 这里使用模拟的LLM
-  const model = {
-    async call(input) {
-      // 实际应该调用云函数或API
-      return `AI回复: ${input}`;
-    }
-  };
-  
-  this.memory = new BufferMemory();
-  this.chain = new ConversationChain({ 
-    llm: model, 
-    memory: this.memory 
-  });
-},
+
   // 用户管理相关方法
   loadUserConversations: function() {
     try {
@@ -529,21 +511,7 @@ async initLangChain() {
     this.hideAllDeleteOptions();
     this.setData({ sending: true, inputValue: '', inputFocus: false });
      
-    // 添加到消息列表
-    this.data.messages.push({ type: 'user', content: input });
-    this.setData({ messages: this.data.messages, inputValue: '' });
     
-    // 调用LangChain
-    try {
-      const response = await this.chain.call({ input });
-      
-      // 添加AI回复
-      this.data.messages.push({ type: 'ai', content: response });
-      this.setData({ messages: this.data.messages });
-      
-    } catch (error) {
-      console.error('LangChain调用失败:', error);
-    }
     // 添加用户消息
     const userMsgId = this.addMessage({
       type: 'user',
