@@ -62,9 +62,31 @@ Page({
 
     const targetUrl = professorUrls[name];
     if (targetUrl) {
-      wx.navigateTo({
-        url: '/pages/webview/webview?url=' + encodeURIComponent(targetUrl) + 
-             '&title=' + encodeURIComponent(name + '教授')
+      wx.showModal({
+        title: `查看${name}教授详情`,
+        content: '是否在浏览器中打开教授主页？',
+        confirmText: '立即打开',
+        cancelText: '取消',
+        success: (res) => {
+          if (res.confirm) {
+            wx.navigateToMiniProgram({
+              appId: 'wxeb7b6f8b8b8b8b8b', // 需要申请小程序跳转
+              path: `pages/web/index?url=${encodeURIComponent(targetUrl)}`
+            }).catch(() => {
+              // 如果小程序跳转失败，使用复制链接方式
+              wx.setClipboardData({
+                data: targetUrl,
+                success: () => {
+                  wx.showModal({
+                    title: '提示',
+                    content: '链接已复制到剪贴板，请在浏览器中粘贴打开',
+                    showCancel: false
+                  });
+                }
+              });
+            });
+          }
+        }
       });
     }
   },
@@ -76,10 +98,34 @@ Page({
     const index = e.currentTarget.dataset.index;
     const invention = this.data.inventions[index];
     
-    wx.navigateTo({
-      url: '/pages/webview/webview?url=' + encodeURIComponent(invention.url) + 
-           '&title=' + encodeURIComponent('新成果详情')
-    });
+    if (invention.url) {
+      wx.showModal({
+        title: '查看新闻详情',
+        content: '是否在浏览器中打开新闻页面？',
+        confirmText: '立即打开',
+        cancelText: '取消',
+        success: (res) => {
+          if (res.confirm) {
+            wx.navigateToMiniProgram({
+              appId: 'wxeb7b6f8b8b8b8b8b', // 需要申请小程序跳转
+              path: `pages/web/index?url=${encodeURIComponent(invention.url)}`
+            }).catch(() => {
+              // 如果小程序跳转失败，使用复制链接方式
+              wx.setClipboardData({
+                data: invention.url,
+                success: () => {
+                  wx.showModal({
+                    title: '提示',
+                    content: '链接已复制到剪贴板，请在浏览器中粘贴打开',
+                    showCancel: false
+                  });
+                }
+              });
+            });
+          }
+        }
+      });
+      }
   },
 
   /**

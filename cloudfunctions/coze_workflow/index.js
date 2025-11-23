@@ -1,6 +1,7 @@
 const cloud = require('wx-server-sdk');
 const axios = require('axios');
 
+
 // 初始化云开发
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -1193,6 +1194,9 @@ exports.main = async (event) => {
   const COZE_TOKEN = process.env.COZE_TOKEN;
   const COZE_BOT_ID = process.env.COZE_BOT_ID;
   const COZE_USER_ID = process.env.COZE_USER_ID;
+ 
+  
+  
 
   if (!COZE_TOKEN || !COZE_BOT_ID || !COZE_USER_ID) {
     log('internal error: COZE_TOKEN, COZE_BOT_ID, or COZE_USER_ID is not set');
@@ -1220,6 +1224,7 @@ exports.main = async (event) => {
     bot_id: COZE_BOT_ID,
     user_id: COZE_USER_ID,
     stream: true,
+    auto_save_history: true, // 关键：添加这个参数
     additional_messages: [
       {
         role: "user",

@@ -1,5 +1,8 @@
 // pages/chatBot/chatBot.js
 const userManager = require('../../utils/userManager');
+const { OpenAI } = require('langchain/llms/openai');
+const { BufferMemory } = require('langchain/memory');
+const { ConversationChain } = require('langchain/chains');
 
 Page({
   /**
@@ -73,6 +76,7 @@ Page({
    * 生命周期函数--监听页面加载
    */
   onLoad: function(options) {
+    this.initLangChain();
     // 默认定位到输入区"+"号上方一点
     const { windowWidth, windowHeight } = wx.getWindowInfo();
     const defaultX = windowWidth - 120;
@@ -105,7 +109,23 @@ Page({
     }
     if (!this.data.fabX || !this.data.fabY) this.setData({ fabX: defaultX, fabY: defaultY });
   },
-
+// 初始化LangChain
+async initLangChain() {
+  // 注意：小程序中需要使用云函数或HTTP请求调用OpenAI API
+  // 这里使用模拟的LLM
+  const model = {
+    async call(input) {
+      // 实际应该调用云函数或API
+      return `AI回复: ${input}`;
+    }
+  };
+  
+  this.memory = new BufferMemory();
+  this.chain = new ConversationChain({ 
+    llm: model, 
+    memory: this.memory 
+  });
+},
   // 用户管理相关方法
   loadUserConversations: function() {
     try {
@@ -508,7 +528,22 @@ Page({
     console.log(`当前sending状态: ${this.data.sending}`);
     this.hideAllDeleteOptions();
     this.setData({ sending: true, inputValue: '', inputFocus: false });
-
+     
+    // 添加到消息列表
+    this.data.messages.push({ type: 'user', content: input });
+    this.setData({ messages: this.data.messages, inputValue: '' });
+    
+    // 调用LangChain
+    try {
+      const response = await this.chain.call({ input });
+      
+      // 添加AI回复
+      this.data.messages.push({ type: 'ai', content: response });
+      this.setData({ messages: this.data.messages });
+      
+    } catch (error) {
+      console.error('LangChain调用失败:', error);
+    }
     // 添加用户消息
     const userMsgId = this.addMessage({
       type: 'user',
@@ -666,9 +701,11 @@ const conversationHistory = this.getConversationHistoryForAPI();
     msg.type === 'user' || msg.type === 'assistant'
   );
   
-  // 限制历史记录数量，保留最近12轮对话（6对问答）
-  const maxHistory = 12;
+  // 短期记忆，限制历史记录数量，保留最近10轮对话（5对问答）
+  const maxHistory = 10;
   const recentMessages = validMessages.slice(-maxHistory);
+   // 长期记忆：获取关键词和摘要
+   const longTermMemory = this.getLongTermMemory();
   
   // 格式化历史消息为API需要的格式
   const history = recentMessages.map(msg => ({
@@ -677,7 +714,20 @@ const conversationHistory = this.getConversationHistoryForAPI();
   }));
   
   console.log(`准备传递对话历史: ${history.length}条消息`);
-  return history;
+  return {
+    recent_history: history,
+    long_term_memory: longTermMemory
+  };
+},
+// 获取长期记忆
+getLongTermMemory: function() {
+  const keywords = userManager.getUserKeywords();
+  const summaries = userManager.getUserSummaries();
+  
+  return {
+    keywords: keywords.slice(-20), // 最近20个关键词
+    recent_summaries: summaries.slice(-5) // 最近5个对话摘要
+  };
 },
   // 添加消息
   addMessage: function(msg) {
@@ -1198,11 +1248,152 @@ const conversationHistory = this.getConversationHistoryForAPI();
         currentTitle: title,
         conversations: conversations 
       });
+      // 提取对话关键词作为长期记忆
+    this.extractConversationKeywords(currentCid, messages);
+    
     } catch (e) {
       console.error('保存对话到历史记录失败:', e);
     }
   },
+  // 提取对话关键词
+extractConversationKeywords: function(conversationId, messages) {
+  const keywords = new Set();
+  
+  // 分析消息内容提取关键词
+  messages.forEach(msg => {
+    if (msg.type === 'user' || msg.type === 'assistant') {
+      const content = msg.content || '';
+      
+      // 提取中文关键词（专业术语、研究方向等）
+      const chineseKeywords = this.extractChineseKeywords(content);
+      chineseKeywords.forEach(keyword => keywords.add(keyword));
+      
+      // 提取英文关键词
+      const englishKeywords = this.extractEnglishKeywords(content);
+      englishKeywords.forEach(keyword => keywords.add(keyword));
+    }
+  });
+   // 保存关键词到长期记忆
+   if (keywords.size > 0) {
+    const keywordsKey = userManager.getUserKeywordsKey();
+    const existingKeywords = wx.getStorageSync(keywordsKey) || [];
+    const newKeywords = Array.from(keywords);
+    
+    // 合并并去重
+    const allKeywords = [...new Set([...existingKeywords, ...newKeywords])];
+    
+    // 限制关键词数量，保留最近100个
+    if (allKeywords.length > 100) {
+      allKeywords.splice(0, allKeywords.length - 100);
+    }
+    
+    wx.setStorageSync(keywordsKey, allKeywords);
+    console.log('提取关键词:', Array.from(keywords));
+  }
+},
 
+// 提取中文关键词
+extractChineseKeywords: function(text) {
+  const keywords = [];
+  
+  // 匹配中文专业术语（2-6个字符）
+  const chinesePattern = /[\u4e00-\u9fa5]{2,6}/g;
+  const matches = text.match(chinesePattern) || [];
+  
+  // 过滤常见词，保留专业术语
+  const commonWords = ['这个', '那个', '可以', '需要', '想要', '请问', '谢谢'];
+  matches.forEach(word => {
+    if (!commonWords.includes(word) && word.length >= 2) {
+      keywords.push(word);
+    }
+  });
+  
+  return keywords;
+},
+
+// 提取英文关键词
+extractEnglishKeywords: function(text) {
+  const keywords = [];
+  
+  // 匹配英文单词（3个字母以上）
+  const englishPattern = /\b[a-zA-Z]{3,}\b/g;
+  const matches = text.match(englishPattern) || [];
+  
+  // 过滤常见词，保留专业术语
+  const commonWords = ['the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'any'];
+  matches.forEach(word => {
+    const lowerWord = word.toLowerCase();
+    if (!commonWords.includes(lowerWord) && lowerWord.length >= 3) {
+      keywords.push(word);
+    }
+  });
+  
+  return keywords;
+},
+// 生成对话摘要
+generateConversationSummary: function(conversationId, messages) {
+  if (messages.length < 4) return null; // 对话太短不生成摘要
+  
+  const userMessages = messages.filter(msg => msg.type === 'user');
+  const assistantMessages = messages.filter(msg => msg.type === 'assistant');
+  
+  if (userMessages.length === 0) return null;
+  
+  // 提取主要话题
+  const topics = this.extractMainTopics(messages);
+  
+  // 生成简单摘要
+  const summary = {
+    conversationId: conversationId,
+    userQueryCount: userMessages.length,
+    mainTopics: topics.slice(0, 3), // 最多3个主要话题
+    lastUpdated: Date.now(),
+    messageCount: messages.length
+  };
+  
+  // 保存摘要
+  const summaryKey = userManager.getUserSummaryKey();
+  const existingSummaries = wx.getStorageSync(summaryKey) || [];
+  
+  // 更新或添加摘要
+  const existingIndex = existingSummaries.findIndex(s => s.conversationId === conversationId);
+  if (existingIndex >= 0) {
+    existingSummaries[existingIndex] = summary;
+  } else {
+    existingSummaries.push(summary);
+  }
+  
+  // 限制摘要数量
+  if (existingSummaries.length > 20) {
+    existingSummaries.splice(0, existingSummaries.length - 20);
+  }
+  
+  wx.setStorageSync(summaryKey, existingSummaries);
+  return summary;
+},
+
+// 提取主要话题
+extractMainTopics: function(messages) {
+  const topicFrequency = {};
+  
+  messages.forEach(msg => {
+    if (msg.content) {
+      // 简单的关键词频率统计
+      const words = msg.content.split(/[\s,，。！？；;]/);
+      words.forEach(word => {
+        if (word.length >= 2 && word.length <= 6) {
+          topicFrequency[word] = (topicFrequency[word] || 0) + 1;
+        }
+      });
+    }
+  });
+  
+  // 按频率排序
+  return Object.entries(topicFrequency)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([word]) => word);
+},
   // AI生成对话标题
   generateConversationTitle: function(messages) {
     if (!messages || messages.length === 0) return '新对话';

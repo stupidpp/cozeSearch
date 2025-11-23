@@ -177,6 +177,35 @@ class UserManager {
     // 简化显示：只显示后8位
     return `用户${userId.slice(-8)}`;
   }
+   /**
+   * 获取用户的关键词存储key
+   */
+   getUserKeywordsKey() {
+    return this.getUserStorageKey('keywords');
+  }
+
+  /**
+   * 获取用户的摘要存储key
+   */
+  getUserSummaryKey() {
+    return this.getUserStorageKey('summaries');
+  }
+
+  /**
+   * 获取用户的关键词列表
+   */
+  getUserKeywords() {
+    const keywordsKey = this.getUserKeywordsKey();
+    return wx.getStorageSync(keywordsKey) || [];
+  }
+
+  /**
+   * 获取用户的对话摘要
+   */
+  getUserSummaries() {
+    const summaryKey = this.getUserSummaryKey();
+    return wx.getStorageSync(summaryKey) || [];
+  }
 }
 
 // 创建单例实例
