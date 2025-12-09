@@ -1,6 +1,8 @@
 {
   "usingComponents": {
-    "custom-professor-list": "/components/tools/professor-list/index"
+    "custom-professor-list": "/components/tools/professor-list/index",
+    "feedback-card": "/components/feedback-card/feedback-card"
+
   },
   "enablePullDownRefresh": true,
   "navigationStyle": "custom"

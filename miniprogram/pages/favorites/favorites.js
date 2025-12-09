@@ -1,4 +1,6 @@
 // pages/favorites/favorites.js
+const userManager = require('../../utils/userManager');
+
 Page({
   data: {
     favorites: [],
@@ -18,9 +20,12 @@ Page({
     this.loadFavorites();
   },
 
-  loadFavorites: function() {
+ /* loadFavorites: function() {
     try {
-      const favorites = wx.getStorageSync('favorites') || [];
+      const favoritesKey = userManager.getUserFavoritesKey();
+      const favorites = wx.getStorageSync(favoritesKey) || [];
+      
+     // const favorites = wx.getStorageSync('favorites') || [];
       // 提取所有标签
       const tags = Array.from(new Set(favorites.flatMap(prof => prof.areas || [])));
       
@@ -35,8 +40,34 @@ Page({
       console.error('加载收藏失败:', error);
       this.setData({ loading: false });
     }
+  },*/
+  loadFavorites: function() {
+    try {
+      const favoritesKey = userManager.getUserFavoritesKey(); // 使用专属key
+      const allFavorites = wx.getStorageSync(favoritesKey) || [];
+      
+      // ✅ 核心去重逻辑：同一profId只保留一个（例如保留最新的）
+      const favoriteMap = new Map();
+      allFavorites.forEach(prof => {
+        // 如果已存在，可以选择保留 updatedAt 更大的一个（即更新的）
+        if (!favoriteMap.has(prof.profId) || prof.updatedAt > favoriteMap.get(prof.profId).updatedAt) {
+          favoriteMap.set(prof.profId, prof);
+        }
+      });
+      const uniqueFavorites = Array.from(favoriteMap.values());
+      
+      const tags = Array.from(new Set(uniqueFavorites.flatMap(prof => prof.areas || [])));
+      this.setData({
+        favorites: uniqueFavorites, // ✅ 存储去重后的
+        allTags: ['全部'].concat(tags), // 保持“全部”标签
+        loading: false
+      }, () => this.applyFilter());
+      
+    } catch (error) {
+      console.error('加载收藏失败:', error);
+      this.setData({ loading: false });
+    }
   },
-
   // 搜索输入
   onInput: function(e) {
     this.setData({ keyword: e.detail.value });
@@ -93,7 +124,7 @@ Page({
   },
 
   // 取消收藏
-  removeFavorite: function(e) {
+  /*removeFavorite: function(e) {
     const profId = e.currentTarget.dataset.id;
     if (!profId) return;
 
@@ -103,10 +134,18 @@ Page({
       success: (res) => {
         if (res.confirm) {
           try {
+            const favoritesKey = userManager.getUserFavoritesKey();
+
             let favorites = wx.getStorageSync('favorites') || [];
             favorites = favorites.filter(prof => prof.profId !== profId);
             wx.setStorageSync('favorites', favorites);
-            
+            if (wx.$emit) {
+              wx.$emit('favoriteChanged', {
+                profId: profId,
+                isFav: false // 明确传递新状态：已取消收藏
+              });
+              console.log(`已发送取消收藏事件，profId: ${profId}`);
+            }
             // 重新提取标签
             const tags = Array.from(new Set(favorites.flatMap(prof => prof.areas || [])));
             
@@ -127,8 +166,65 @@ Page({
         }
       }
     });
+  },*/
+  removeFavorite: function(e) {
+    const profId = e.currentTarget.dataset.id;
+    if (!profId) return;
+    const that = this;
+  
+    wx.showModal({
+      title: '确认取消收藏',
+      content: '确定要取消收藏这位教授吗？',
+      success: (res) => {
+        if (res.confirm) {
+          try {
+            // ✅ 1. 统一使用用户专属Key
+            const favoritesKey = userManager.getUserFavoritesKey();
+            let favorites = wx.getStorageSync(favoritesKey) || [];
+            
+            // ✅ 2. 精准删除：只删除profId匹配的
+            const beforeLength = favorites.length;
+            favorites = favorites.filter(prof => prof.profId !== profId);
+            
+            if (favorites.length === beforeLength) {
+              wx.showToast({ title: '未找到该收藏', icon: 'none' });
+              return;
+            }
+            
+            wx.setStorageSync(favoritesKey, favorites);
+            
+            // ✅ 3. 发送事件，通知列表组件更新UI（按钮变红）
+            if (wx.$emit) {
+              wx.$emit('favoriteChanged', { profId: profId, isFav: false });
+            }
+            
+            // ✅ 4. 更新收藏页UI（应用去重逻辑）
+            const uniqueFavorites = [];
+            const seenIds = new Set();
+            for (const prof of favorites) {
+              if (!seenIds.has(prof.profId)) {
+                seenIds.add(prof.profId);
+                uniqueFavorites.push(prof);
+              }
+            }
+            
+            const tags = Array.from(new Set(uniqueFavorites.flatMap(prof => prof.areas || [])));
+            that.setData({ 
+              favorites: uniqueFavorites, // ✅ 使用去重后的列表
+              allTags: tags
+            }, () => {
+              that.applyFilter();
+              wx.showToast({ title: '已取消收藏', icon: 'success' });
+            });
+            
+          } catch (error) {
+            console.error('取消收藏失败:', error);
+            wx.showToast({ title: '操作失败', icon: 'none' });
+          }
+        }
+      }
+    });
   },
-
   // 分享教授
   shareProfessor: function(e) {
     const prof = e.currentTarget.dataset.prof;

@@ -1,0 +1,44 @@
+<!-- feedback-card.wxml -->
+<view class="feedback-card" wx:if="{{show}}">
+    <view class="card-header">
+      <text class="title">评价此条回复</text>
+      <text class="subtitle">您的反馈将帮助我们改进</text>
+    </view>
+    
+    <!-- 星级评分 -->
+    <view class="rating-section">
+      <text class="rating-label">评分：</text>
+      <view class="stars">
+        <view 
+          wx:for="{{[1,2,3,4,5]}}" 
+          wx:key="index"
+          class="star {{index < innerRating ? 'active' : ''}}"
+          bindtap="onRate"
+          data-rating="{{index}}"
+        >
+          ★
+        </view>
+      </view>
+      <text class="rating-text">{{ratingText[innerRating]}}</text>
+    </view>
+    
+    <!-- 评价理由 -->
+    <view class="reason-section">
+      <text class="reason-label">理由（可选）：</text>
+      <textarea 
+        class="reason-input" 
+        placeholder="请简要描述回复有帮助或需要改进的地方..."
+        value="{{reason}}"
+        bindinput="onReasonInput"
+        maxlength="200"
+        auto-height
+      />
+      <text class="word-count">{{reason.length}}/200</text>
+    </view>
+    
+    <!-- 操作按钮 -->
+    <view class="action-buttons">
+      <button class="btn submit-btn" bindtap="onSubmit" disabled="{{innerRating === 0}}">提交评价</button>
+      <button class="btn skip-btn" bindtap="onSkip">暂不评价</button>
+    </view>
+  </view>

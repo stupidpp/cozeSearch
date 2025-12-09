@@ -47,9 +47,53 @@ Page({
     // 收藏数据
     favoritesList: [],
     richContent: null,
-    favStatus: {}
+    favStatus: {},
+    showFeedbackCard: false,
+  feedbackTargetMsgId: '',
+  feedbackCardPosition: 'below'
   },
-  
+  startFeedbackTimer: function() {
+    // 先清除可能存在的旧计时器，防止堆积
+    if (this.feedbackTimeoutId) {
+      clearTimeout(this.feedbackTimeoutId);
+      this.feedbackTimeoutId = null;
+    }
+
+    // 设置新的计时器，例如45秒（45000毫秒）
+    // 这个时间可以根据你的对话节奏调整（建议30-60秒）
+    const silenceDuration = 45000; // 单位：毫秒
+
+    this.feedbackTimeoutId = setTimeout(() => {
+      console.log('对话冷却时间到，准备弹出评价卡片');
+      this.showFeedbackForLatestAssistantMsg();
+    }, silenceDuration);
+  },
+
+  // 当有新消息时，取消即将触发的评价
+  cancelFeedbackTimer: function() {
+    if (this.feedbackTimeoutId) {
+      clearTimeout(this.feedbackTimeoutId);
+      this.feedbackTimeoutId = null;
+      console.log('有新消息，取消即将弹出的评价');
+    }
+  },
+
+  // 找到最近一条助手消息并为其显示评价卡片
+  showFeedbackForLatestAssistantMsg: function() {
+    const messages = this.data.messages;
+    // 从后往前找第一条类型为 ‘assistant’ 的消息
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].type === 'assistant') {
+        console.log(`将为消息 ${messages[i].id} 弹出评价卡片`);
+        this.setData({
+          showFeedbackCard: true,
+          feedbackTargetMsgId: messages[i].id,
+        });
+        // 找到一条就跳出循环
+        break;
+      }
+    }
+  },
   // 输入框失去焦点时触发
   onInputBlur: function() {
     this.setData({
@@ -122,6 +166,80 @@ Page({
    }
    if (!this.data.fabX || !this.data.fabY) this.setData({ fabX: defaultX, fabY: defaultY });
  },
+ /**
+   * 生命周期函数--监听页面卸载
+   */
+ onUnload: function() {
+  // 清理所有进度定时器
+  if (this.progressIntervals) {
+    Object.values(this.progressIntervals).forEach(function(interval) {
+      clearInterval(interval);
+    });
+    this.progressIntervals = {};
+  }
+},
+ // 添加方法
+hideFeedbackCard: function() {
+  this.setData({
+    showFeedbackCard: false,
+    feedbackTargetMsgId: ''
+  });
+},
+
+onFeedbackSubmit: function(e) {
+  const feedback = e.detail; // 获取组件传来的评价数据
+  console.log('收到评价数据:', feedback);
+  
+  // 1. 可以保存到本地缓存
+  this.saveFeedbackToLocal(feedback);
+  
+  // 2. 也可以发送到你的后端（推荐）
+  this.uploadFeedbackToServer(feedback);
+  
+  // 隐藏卡片
+  this.hideFeedbackCard();
+},
+
+onFeedbackSkip: function() {
+  console.log('用户跳过了评价');
+  this.hideFeedbackCard();
+},
+
+// 保存到本地（可选）
+saveFeedbackToLocal: function(feedback) {
+  try {
+    let allFeedback = wx.getStorageSync('chat_feedback') || [];
+    allFeedback.push(feedback);
+    wx.setStorageSync('chat_feedback', allFeedback);
+    console.log('评价已保存到本地');
+  } catch (err) {
+    console.error('保存评价失败:', err);
+  }
+},
+
+// 上传到服务器（推荐）
+uploadFeedbackToServer: function(feedback) {
+  // 如果你有云开发环境
+  wx.cloud.callFunction({
+    name: 'addFeedback',
+    data: {
+      feedback: feedback,
+      conversationId: this.data.currentCid,
+      userId: this.data.currentUserId
+    },
+    success: res => {
+      console.log('评价上传成功:', res);
+    },
+    fail: err => {
+      console.error('评价上传失败:', err);
+      // 失败时可以降级到本地保存
+      this.saveFeedbackToLocal(feedback);
+    }
+  });
+  
+  // 或者用 HTTP 请求到你的服务器
+  // wx.request({ ... })
+},
   // 微信分享回调（重要！）
 
 onShareAppMessage: function() {
@@ -293,7 +411,8 @@ onShareAppMessage: function() {
       messages: [], 
       currentTitle: '新对话',
       messageId: 0,
-      sidebarOpen: false  // 直接关闭侧边栏
+      sidebarOpen: false , // 直接关闭侧边栏
+      favStatus: {}  
     });
     
     wx.setStorageSync(conversationsKey, list);
@@ -482,14 +601,22 @@ onShareAppMessage: function() {
   // 收藏相关方法
   loadFavoritesList: function() {
     try {
+      const favoritesKey = userManager.getUserFavoritesKey();
+
       const favorites = wx.getStorageSync('favorites') || [];
+      const favStatus = {};
+      favorites.forEach(prof => {
+        favStatus[prof.profId] = true; // 收藏的教授状态为true
+      });
       // 只显示前5个收藏，避免列表过长
       const displayFavorites = favorites.slice(0, 5).map(prof => ({
         profId: prof.profId,
         name: prof.name,
         school: prof.school
       }));
-      this.setData({ favoritesList: displayFavorites });
+      this.setData({ 
+        favoritesList: displayFavorites , 
+        favStatus: favStatus});
     } catch (error) {
       console.error('加载收藏列表失败:', error);
     }
@@ -626,8 +753,7 @@ onShareAppMessage: function() {
     console.log(`当前sending状态: ${this.data.sending}`);
     this.hideAllDeleteOptions();
     this.setData({ sending: true, inputValue: '', inputFocus: false });
-     
-    
+    this.cancelFeedbackTimer();//用户发新消息取消评价
     // 添加用户消息
     const userMsgId = this.addMessage({
       type: 'user',
@@ -725,6 +851,9 @@ else {
     content: content || '抱歉，暂时无法获取回复，请稍后重试。',
     cardData: cardData,
 
+  });
+  wx.nextTick(() => {
+    this.startFeedbackTimer();
   });
 }
 
@@ -943,7 +1072,27 @@ extractEssentialCardData: function(cardData) {
       };
   }
 },
-
+uploadFeedbackToServer: function(feedback) {
+  // 调用刚部署的 addFeedback 云函数
+  wx.cloud.callFunction({
+    name: 'addFeedback', // 云函数名称，必须和目录名一致
+    data: { // 传递给云函数的参数
+      feedback: feedback,
+      conversationId: this.data.currentCid,
+      userId: this.data.currentUserId
+    },
+    success: res => {
+      console.log('评价上传成功:', res);
+      wx.showToast({ title: '感谢反馈！', icon: 'success' });
+    },
+    fail: err => {
+      console.error('评价上传失败:', err);
+      // 失败时降级到本地存储
+      this.saveFeedbackToLocal(feedback);
+      wx.showToast({ title: '评价已保存（本地）', icon: 'none' });
+    }
+  });
+},
 // 获取长期记忆
 getLongTermMemory: function() {
   const keywords = userManager.getUserKeywords();
@@ -1232,18 +1381,7 @@ getLongTermMemory: function() {
    */
   onHide: function() {},
 
-  /**
-   * 生命周期函数--监听页面卸载
-   */
-  onUnload: function() {
-    // 清理所有进度定时器
-    if (this.progressIntervals) {
-      Object.values(this.progressIntervals).forEach(function(interval) {
-        clearInterval(interval);
-      });
-      this.progressIntervals = {};
-    }
-  },
+  
 
   /**
    * 页面相关事件处理函数--监听用户下拉动作

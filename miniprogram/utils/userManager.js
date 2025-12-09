@@ -122,6 +122,29 @@ class UserManager {
   getUserConversationKey(conversationId) {
     return this.getUserStorageKey(`conv_${conversationId}`);
   }
+  /**
+   * 获取用户专属的收藏存储key
+   * @returns 用户收藏列表的key
+   */
+  getUserFavoritesKey() {
+    return this.getUserStorageKey('favorites');
+  }
+
+  /**
+   * 删除用户数据
+   */
+  deleteUser(userId) {
+    try {
+      // ... existing code ...
+      
+      //新增：删除用户的收藏数据
+      const favoritesKey = `favorites_${userId}`;
+      wx.removeStorageSync(favoritesKey);
+
+    } catch (e) {
+      console.error('删除用户数据失败:', e);
+    }
+  }
 
   /**
    * 删除用户数据

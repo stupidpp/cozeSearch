@@ -1,3 +1,5 @@
+const userManager = require('../../../utils/userManager');
+
 Component({
   properties: {
     name: {
@@ -38,7 +40,8 @@ Component({
     favStatus: {}
   },
   lifetimes: {
-    attached: function() {
+    /*attached: function() {
+
       // 兼容两种来源：1) 旧版 toolData.content；2) 新版 cardData
       this.tryInitFromToolData(this.data.toolData);
       this.tryInitFromCardData(this.data.cardData);
@@ -49,12 +52,44 @@ Component({
         self.refreshFavoriteStates();
       };
       wx.$on && wx.$on('favoriteChanged', this._onFavoriteChanged);
+      
     },
+
+    
+
+
     detached: function() {
       // 清理事件监听
       wx.$off && wx.$off('favoriteChanged', this._onFavoriteChanged);
+    },*/
+    attached: function() {
+      this.tryInitFromToolData(this.data.toolData);
+      this.tryInitFromCardData(this.data.cardData);
+      
+      const self = this;
+      this._onFavoriteChanged = function(eventData) {
+        const { profId, isFav } = eventData || {};
+        console.log('列表组件收到事件，更新:', profId, '->', isFav);
+        
+        if (!profId) return;
+        
+        // ✅ 精准更新 favStatus
+        const newFavStatus = { ...self.data.favStatus, [profId]: isFav };
+        // ✅ 精准更新 candidates 中的 isFav
+        const newCandidates = self.data.candidates.map(prof => 
+          prof.profId === profId ? { ...prof, isFav: isFav } : prof
+        );
+        
+        self.setData({
+          favStatus: newFavStatus,
+          candidates: newCandidates
+        });
+        // ❌ 移除 self.refreshFavoriteStates() 调用
+      };
+      wx.$on && wx.$on('favoriteChanged', this._onFavoriteChanged);
     },
   },
+  
   observers: {
     // 属性变更时也同步
     toolData: function(val) {
@@ -101,30 +136,32 @@ Component({
     tryInitFromCardData: function(cardData) {
       try {
         if (!cardData || typeof cardData !== 'object') return;
-        // 期待结构：{ type: 'professor_list', professors: [...] }
         const type = cardData.type;
         const professors = cardData.professors;
         if (type === 'professor_list' && Array.isArray(professors)) {
-          // 获取已收藏的教授列表
-          const favorites = wx.getStorageSync('favorites') || [];
+          // ✅ 1. 统一使用用户专属Key读取
+          const userManager = require('../../../utils/userManager');
+          const favoritesKey = userManager.getUserFavoritesKey();
+          const favorites = wx.getStorageSync(favoritesKey) || [];
           const favSet = new Set(favorites.map(function(f) { return f.profId; }));
-          
-          // 首先检测重复的profId
+    
           const usedIds = new Set();
           const mapped = (professors || []).map(function(p, index) {
-            let originalProfId = p.profId || p.documentId || '';
-            let profId = originalProfId;
-            
-            // 如果ID为空或已被使用，生成新的唯一ID
-            if (!profId || usedIds.has(profId)) {
-              profId = originalProfId + '_' + index + '_' + Math.random().toString(36).substr(2, 6);
+            // ✅ 2. 生成稳定的profId，避免随机后缀
+            let profId = p.profId || p.documentId || '';
+            if (!profId) {
+              // 无ID时，用“姓名_学校”生成，尽量唯一且稳定
+              profId = `prof_${(p.name || 'unknown').replace(/\s+/g, '_')}_${(p.school || 'unknown').replace(/\s+/g, '_')}`;
             }
-            
+            // 仅当本次列表内重复时才加后缀（不添加随机数！）
+            if (usedIds.has(profId)) {
+              profId = `${profId}_${index}`; // 使用索引作为后缀，稳定
+            }
             usedIds.add(profId);
-            
+    
             return {
-              profId: profId,
-              uniqueKey: 'prof_' + Date.now() + '_' + index + '_' + Math.random().toString(36).substr(2, 8), // 确保每个条目有唯一key
+              profId: profId, // ✅ 这是用于所有后续操作的唯一ID
+              uniqueKey: 'prof_' + Date.now() + '_' + index, // UI渲染用，允许随机
               name: p.name || '',
               school: p.school || '',
               areas: Array.isArray(p.areas) ? p.areas : [],
@@ -136,16 +173,15 @@ Component({
               highlights: Array.isArray(p.highlights) ? p.highlights : [],
               score: p.score,
               displayScore: p.displayScore !== undefined ? p.displayScore : p.score,
-              // 🎯 添加匹配度和标签支持
               matchScore: p.matchScore || 0,
               tags: Array.isArray(p.tags) ? p.tags : [],
-              isFav: favSet.has(originalProfId), // 使用原始ID检查收藏状态
+              // ✅ 3. 使用稳定的profId进行收藏判断
+              isFav: favSet.has(profId),
             };
           });
           this.setData({ 
             candidates: this.decorate(mapped),
-            favStatus: this.buildFavStatus(mapped) // 新增
-
+            favStatus: this.buildFavStatus(mapped)
           });
         }
       } catch (e) {
@@ -180,7 +216,7 @@ onFavorite: function(e) {
   
   const newFavState = newCandidates[index].isFav;
   
-  // ✅ 关键修复：同时更新 favStatus 对象
+  // 同时更新 favStatus 对象
   const newFavStatus = {
     ...this.data.favStatus, // 保留其他卡片的收藏状态
     [profId]: newFavState   // 更新当前卡片的收藏状态
@@ -189,16 +225,20 @@ onFavorite: function(e) {
   // 强制更新UI
   this.setData({ 
     candidates: newCandidates,
-    favStatus: newFavStatus  // 新增这行，让WXML绑定的数据也更新
+    favStatus: newFavStatus  //让WXML绑定的数据也更新
 
   });
+  //使用用户专属的收藏key
+  const userManager = require('../../../utils/userManager');
+  const favoritesKey = userManager.getUserFavoritesKey();
   
   
   // 处理本地存储和云端同步
   try {
-    const existed = wx.getStorageSync('favorites') || [];
+    //const existed = wx.getStorageSync('favorites') || [];
+    //const favMap = new Map(existed.map(function(x) { return [x.profId, x]; }));
+    const existed = wx.getStorageSync(favoritesKey) || [];
     const favMap = new Map(existed.map(function(x) { return [x.profId, x]; }));
-    
     if (newFavState) {
       // 添加到收藏
       const profData = Object.assign({}, newCandidates[index], { updatedAt: Date.now() });
@@ -226,7 +266,7 @@ onFavorite: function(e) {
       }).catch(err => console.error('Cloud remove failed:', err));
     }
     
-    wx.setStorageSync('favorites', Array.from(favMap.values()));
+    wx.setStorageSync(favoritesKey, Array.from(favMap.values()));
     
   } catch (err) {
     console.error('Storage error:', err);

@@ -1,0 +1,127 @@
+/* feedback-card.wxss */
+.feedback-card {
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin: 20rpx 0 30rpx 80rpx; /* 左侧留出与助手消息对齐的空间 */
+  border-left: 6rpx solid #07c160;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.08);
+}
+
+.card-header {
+  margin-bottom: 20rpx;
+}
+
+.title {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #2c3e50;
+  display: block;
+}
+
+.subtitle {
+  font-size: 22rpx;
+  color: #7f8c8d;
+  display: block;
+  margin-top: 4rpx;
+}
+
+.rating-section {
+  display: flex;
+  align-items: center;
+  margin: 24rpx 0;
+}
+
+.rating-label {
+  font-size: 26rpx;
+  color: #34495e;
+  margin-right: 15rpx;
+}
+
+.stars {
+  display: flex;
+  margin-right: 20rpx;
+}
+
+.star {
+  font-size: 40rpx;
+  color: #ddd;
+  margin-right: 10rpx;
+  transition: all 0.2s;
+  padding: 5rpx;
+}
+
+.star.active {
+  color: #ffd700;
+  transform: scale(1.1);
+  text-shadow: 0 0 8rpx rgba(255, 215, 0, 0.3);
+}
+
+.rating-text {
+  font-size: 24rpx;
+  color: #7f8c8d;
+  font-style: italic;
+}
+
+.reason-section {
+  margin: 24rpx 0;
+}
+
+.reason-label {
+  font-size: 26rpx;
+  color: #34495e;
+  display: block;
+  margin-bottom: 12rpx;
+}
+
+.reason-input {
+  width: 100%;
+  background: white;
+  border-radius: 12rpx;
+  padding: 16rpx;
+  font-size: 26rpx;
+  min-height: 120rpx;
+  box-sizing: border-box;
+  border: 1rpx solid #dcdcdc;
+}
+
+.word-count {
+  font-size: 22rpx;
+  color: #95a5a6;
+  text-align: right;
+  display: block;
+  margin-top: 8rpx;
+}
+
+.action-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 20rpx;
+  margin-top: 20rpx;
+}
+
+.btn {
+  padding: 0 30rpx;
+  height: 64rpx;
+  line-height: 64rpx;
+  border-radius: 32rpx;
+  font-size: 26rpx;
+  border: none;
+  transition: all 0.2s;
+}
+
+.submit-btn {
+  background: linear-gradient(135deg, #78e1ab, #05a050);
+  color: white;
+}
+
+.submit-btn:disabled {
+  background: #cccccc;
+  color: #888888;
+}
+
+.skip-btn {
+  background: transparent;
+  color: #7f8c8d;
+  border: 1rpx solid #dcdcdc;
+}

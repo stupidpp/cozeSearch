@@ -167,6 +167,14 @@
           <view wx:if="{{item.cardData}}" class="card-container">
             <custom-professor-list cardData="{{item.cardData}}" multiSelectMode="{{multiSelectMode}}" messageSelected="{{item.selected}}"></custom-professor-list>
           </view>
+          <feedback-card 
+            wx:if="{{showFeedbackCard && feedbackTargetMsgId === item.id}}"
+            show="{{true}}"
+            target-msg-id="{{item.id}}"
+            bind:submit="onFeedbackSubmit"
+            bind:skip="onFeedbackSkip"
+            bind:hide="hideFeedbackCard"
+          />
         </view>
 
         <!-- 加载消息 -->
