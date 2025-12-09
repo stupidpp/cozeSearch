@@ -1,4 +1,6 @@
 /* pages/shared/shared.wxss */
+@import "../../components/towxml/style/main.wxss";
+
 page {
   background-color: #fafbfc;
 }
@@ -74,6 +76,18 @@ page {
   line-height: 1.6;
   box-shadow: 0 1rpx 8rpx rgba(0, 0, 0, 0.04);
 }
+/* 修改样式，确保 rich-text 组件能正常显示 */
+.assistant-message .message-content rich-text {
+  display: block !important;
+  min-height: 20px !important;
+}
+
+/* 或者为 rich-text 的容器设置样式 */
+.message-content rich-text {
+  display: block;
+  width: 100%;
+}
+
 
 .card-container {
   margin-right: 80rpx;

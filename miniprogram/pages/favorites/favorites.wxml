@@ -89,10 +89,25 @@
         <!-- 研究成果 -->
         <view wx:if="{{prof.highlights && prof.highlights.length}}" class="highlights">
           <view class="highlights-title">研究特色</view>
-          <block wx:for="{{prof.highlights}}" wx:for-item="highlight" wx:key="*this">
-            <view class="highlight-item">• {{highlight}}</view>
+          <block wx:for="{{prof.highlights}}" wx:for-item="highlight" wx:key="hlIdx">
+            <!-- 统一的结构：一个列表项容器 -->
+            <view class="highlight-list-item">
+              <!-- 将圆点作为实元素渲染，确保始终显示 -->
+              <text class="highlight-bullet">• </text>
+              <!-- 内容区域 -->
+              <view class="highlight-content">
+                <block wx:if="{{isMarkdown(highlight)}}">
+                  <!-- 将样式类赋给 towxml，并设置自定义事件（如有需要） -->
+                  <towxml class="markdown-content" nodes="{{parseMarkdown(highlight)}}" />
+                </block>
+                <block wx:else>
+                  <text class="plain-text">{{highlight}}</text>
+                </block>
+              </view>
+            </view>
           </block>
         </view>
+          
       </view>
     </block>
   </scroll-view>

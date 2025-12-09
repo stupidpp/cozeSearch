@@ -1,4 +1,5 @@
 /* pages/chatBot/chatBot.wxss */
+@import "../../components/towxml/style/main.wxss";
 page {
   background-color: #fafbfc;
 }
@@ -143,6 +144,24 @@ page {
   padding: 16rpx 24rpx;
   text-align: center;
   background: #f8f9fa;
+}
+.view-all-favorites {
+  padding: 20rpx;
+  margin: 10rpx 0;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 12rpx;
+  border: 1rpx solid #e0e0e0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* 确保可点击 */
+  position: relative;
+  z-index: 10;
+}
+
+.view-all-favorites:active {
+  background: rgba(240, 240, 240, 0.9);
+  transform: scale(0.98);
 }
 
 .view-all-text {
@@ -467,7 +486,8 @@ page {
   padding: 16rpx 20rpx;
   border-radius: 20rpx 20rpx 20rpx 6rpx;
   max-width: 100%;
-  width: fit-content;
+  width: 80%;
+  min-width: 320rpx;
   font-size: 26rpx;
   line-height: 1.4;
   font-weight: 400;
@@ -478,6 +498,42 @@ page {
   margin-right: auto;
   align-self: flex-start;
 }
+.assistant-message .message-content:has(rich-text) {
+  width: 80% !important;
+  min-width: 320rpx !important;
+  display: block !important;
+}
+.empty-line { height: 20rpx; }
+
+/* Rich-Text组件强制显示样式 */
+rich-text {
+  color: #2c3e50 !important;
+  font-size: 26rpx !important;
+  line-height: 1.4 !important;
+  width: 100% !important;
+  display: block !important;
+}
+
+/* 确保Markdown内容在rich-text中正确显示 */
+rich-text .md-p, rich-text .md-ul, rich-text .md-li {
+  display: block !important;
+  width: 100% !important;
+}
+/* 基础Markdown样式 */
+.md-h1 { font-size: 36rpx; font-weight: bold; margin: 40rpx 0 20rpx; }
+.md-h2 { font-size: 32rpx; font-weight: bold; margin: 32rpx 0 16rpx; }
+.md-h3 { font-size: 28rpx; font-weight: bold; margin: 28rpx 0 14rpx; }
+.md-p { margin: 20rpx 0; line-height: 1.6; }
+.md-ul { margin: 20rpx 0; padding-left: 40rpx; }
+.md-li { margin: 10rpx 0; }
+.md-list-bullet { margin-right: 10rpx; }
+.md-strong { font-weight: bold; }
+.md-em { font-style: italic; }
+.md-code { background: #f5f5f5; padding: 4rpx 8rpx; border-radius: 4rpx; font-family: monospace; }
+.md-hr { height: 1px; background: #e0e0e0; margin: 40rpx 0; }
+.empty-line { height: 20rpx; }
+
+
 
 .card-container {
   width: 100%;

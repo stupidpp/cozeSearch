@@ -57,5 +57,6 @@
   },
   "appid": "wx9823ce96c390d76e",
   "libVersion": "3.9.1",
-  "simulatorPluginLibVersion": {}
+  "simulatorPluginLibVersion": {},
+  "envId" : "cloud1-6gpui97oad126d42"
 }

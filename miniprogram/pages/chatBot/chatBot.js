@@ -1,5 +1,8 @@
 // pages/chatBot/chatBot.js
+const app = getApp();
 const userManager = require('../../utils/userManager');
+const Towxml = require('../../components/towxml/index');
+const { parseSimpleMarkdown } = require('../../components/markdownParser'); // 假设你将函数放在这里
 
 
 Page({
@@ -33,6 +36,7 @@ Page({
      showSharePanel: false,
      // 联系我们弹窗
     showContactUs: false,
+    currentShareProf: null, // 确保有这个字段
   // 联系我们图片控制（优先本地，失败则回退远程）
   // 使用根路径 `/assets/icons/...` 指向 miniprogram/images 下的资源，避免被解析为 /pages/assets/icons/...
   contactImageSrc: '/assets/icons/contact-us.jpg',
@@ -41,7 +45,9 @@ Page({
     conversationsCollapsed: false,
     favoritesCollapsed: false,
     // 收藏数据
-    favoritesList: []
+    favoritesList: [],
+    richContent: null,
+    favStatus: {}
   },
   
   // 输入框失去焦点时触发
@@ -74,40 +80,105 @@ Page({
    * 生命周期函数--监听页面加载
    */
   onLoad: function(options) {
-   
-    // 默认定位到输入区"+"号上方一点
-    const { windowWidth, windowHeight } = wx.getWindowInfo();
-    const defaultX = windowWidth - 120;
-    const defaultY = windowHeight - 180;
-    try {
-      const saved = wx.getStorageSync('favFabPos');
-      if (saved && typeof saved.x === 'number' && typeof saved.y === 'number') {
-        this.setData({ fabX: saved.x, fabY: saved.y });
-      }
-      
-      // 初始化用户管理
-      const currentUserId = userManager.getCurrentUserId();
-      const userList = userManager.getUserList();
-      this.setData({ 
-        currentUserId, 
-        currentUserDisplayName: userManager.getUserDisplayName(currentUserId),
-        userList: userList.map(id => ({
-          id,
-          displayName: userManager.getUserDisplayName(id),
-          isCurrent: id === currentUserId
-        }))
-      });
-      
-      // 加载当前用户的会话列表
-      this.loadUserConversations();
-      // 加载收藏列表
-      this.loadFavoritesList();
-    } catch (err) {
-      console.error('页面加载失败:', err);
+    if (options && (options.profId || options.profName)) {
+      console.log('通过分享进入页面，参数:', options);
     }
-    if (!this.data.fabX || !this.data.fabY) this.setData({ fabX: defaultX, fabY: defaultY });
-  },
+     // 保存参数到页面数据
+     this.setData({
+      sharedProfParams: options,
+      hasProcessedShare: false
+    });
+    console.log('已保存分享参数：',options);
+    
+   // 默认定位到输入区"+"号上方一点
+   const { windowWidth, windowHeight } = wx.getWindowInfo();
+   const defaultX = windowWidth - 120;
+   const defaultY = windowHeight - 180;
+   try {
+     const saved = wx.getStorageSync('favFabPos');
+     if (saved && typeof saved.x === 'number' && typeof saved.y === 'number') {
+       this.setData({ fabX: saved.x, fabY: saved.y });
+     }
+     
+     // 初始化用户管理
+     const currentUserId = userManager.getCurrentUserId();
+     const userList = userManager.getUserList();
+     this.setData({ 
+       currentUserId, 
+       currentUserDisplayName: userManager.getUserDisplayName(currentUserId),
+       userList: userList.map(id => ({
+         id,
+         displayName: userManager.getUserDisplayName(id),
+         isCurrent: id === currentUserId
+       }))
+     });
+     
+     // 加载当前用户的会话列表
+     this. loadUserConversations();
+     // 加载收藏列表
+     this.loadFavoritesList();
+   } catch (err) {
+     console.error('页面加载失败:', err);
+   }
+   if (!this.data.fabX || !this.data.fabY) this.setData({ fabX: defaultX, fabY: defaultY });
+ },
+  // 微信分享回调（重要！）
 
+onShareAppMessage: function() {
+  console.log(' onShareAppMessage函数被调用！');
+  
+  const prof = this.data.currentShareProf;
+  console.log('当前分享的教授数据:', prof);
+  
+  // 如果有教授数据，分享教授
+  if (prof) {
+    // 生成分享标题
+    const title = `${prof.name}教授 | ${prof.school || ''} | 匹配度${prof.score || prof.displayScore || 0}%`;
+    
+    //  关键修改：使用正确的路径
+    // 根据你的app.json，正确的路径是 /pages/chatBot/chatBot
+    let path = '/pages/chatBot/chatBot';
+    
+    // 添加教授参数
+    const params = [];
+    if (prof.profId) {
+      params.push(`profId=${prof.profId}`);
+    }
+    if (prof.name) {
+      params.push(`profName=${encodeURIComponent(prof.name)}`);
+    }
+    
+    if (params.length > 0) {
+      path += '?' + params.join('&');
+    }
+    
+    console.log(' 分享配置:', { title, path });
+    
+    return {
+      title: title,
+      path: path,
+      success: (res) => {
+        console.log(' 分享成功:', res);
+        wx.showToast({ title: '分享成功', icon: 'success' });
+        // 重置分享状态
+        this.setData({ currentShareProf: null });
+      },
+      fail: (err) => {
+        console.error(' 分享失败:', err);
+        wx.showToast({ title: '分享失败', icon: 'none' });
+      }
+    };
+  }
+  
+  // 默认分享（点击右上角三个点的分享）
+  console.log('使用默认分享配置');
+  return {
+    title: '浙大教授信息推荐',
+    path: '/pages/chatBot/chatBot'  // 聊天页面
+  };
+},
+  
+  
   // 用户管理相关方法
   loadUserConversations: function() {
     try {
@@ -436,7 +507,27 @@ Page({
   // 跳转到收藏页面
   goToFavoritesPage: function() {
     this.setData({ sidebarOpen: false });
-    wx.navigateTo({ url: '/pages/favorites/favorites' });
+    wx.switchTab({
+       url: '/pages/favorites/favorites' ,
+      
+        success: (res) => {
+          console.log('✅ 跳转成功', res);
+        },
+        fail: (err) => {
+          console.error('❌ 跳转失败:', err);
+          console.log('错误详情:', err.errMsg);
+          
+          // 提供用户反馈
+          wx.showToast({
+            title: '跳转失败，请稍后重试',
+            icon: 'none',
+            duration: 2000
+          });
+        },
+        complete: () => {
+          console.log('跳转操作完成');
+        }
+      });
   },
   loadConversation: function(cid){
     try {
@@ -501,7 +592,32 @@ Page({
       icon: 'success'
     });
   },
-
+  formatProfessorCard: function(rawContent) {
+    // 1. 使用 towxml 解析
+    const data = app.towxml(rawContent, 'markdown', {
+      theme: 'light',
+    });
+    
+    // 2. 【关键】调用 towxml 提供的 toJson 方法进行适配转换
+    // 注意：不同版本方法名可能为 `toJson` 或 `toJSON`，请根据你的库文件确认
+    let formattedContent = [];
+    if (app.towxml.toJson) {
+      // 版本1：方法名为 toJson
+      formattedContent = app.towxml.toJson(data, 'markdown');
+    } else if (app.towxml.toJSON) {
+      // 版本2：方法名为 toJSON
+      formattedContent = app.towxml.toJSON(data, 'markdown');
+    } else if (data.nodes) {
+      // 版本3：有些版本解析结果直接放在 `data.nodes` 里
+      formattedContent = data.nodes;
+    } else {
+      // 保底：如果以上都没有，尝试原样返回 data 或其 children
+      formattedContent = data.children || data || [];
+    }
+    
+    console.log('【转换后】用于 rich-text 的 nodes 数据:', formattedContent);
+    return formattedContent;
+  },
   // 发送消息
   onSend: async function() {
     const log = (message) => { console.log(`[onSend] ${message}`); };
@@ -530,12 +646,17 @@ Page({
     // 启动进度动画
     this.startProgressAnimation(loadingMsgId);
 
+    // ... existing code ...
     try {
+      
       let result = await this.callCozeWorkflow(input);
-      log(`处理返回结果: ${JSON.stringify(result)}`);
+      //log(`处理返回结果: ${JSON.stringify(result)}`);
+      //log(`处理返回结果:`, result); // 先直接打印，看是否是undefined
+
       
       // 立即清理所有loading消息，并在清理完成后添加助手回复
       await this.clearAllLoadingMessages();
+
 // 直接从返回结果中提取内容和卡片数据
 let content = '';
 let cardData = null;
@@ -546,49 +667,67 @@ if (result && typeof result === 'object') {
   content = result.content || '';
   cardData = result.cardData || null;
   conversationId = result.conversation_id || '';
-} else {
-  // 如果是字符串格式，按原来的方式处理
-  const resultStr = String(result);
-  log(`result类型: ${typeof resultStr}, 原始值: ${resultStr}`);
   
-  // 尝试匹配 <search_result> 标签（向后兼容）
-  const searchResult = resultStr.match(/<search_result>([\s\S]*?)<\/search_result>/);
-  if (searchResult && searchResult[1]) {
-    log(`找到搜索结果: ${searchResult[1]}`);
-    content = resultStr.replace(searchResult[0], '');
-    try {
-      // 关键步骤：移除 Markdown 代码块标记和多余换行
-      const cleanJsonStr = searchResult[1]
-        .replace(/^```json\s*/i, '') // 移除开头的 ```json（忽略大小写）
-        .replace(/\s*```$/i, '')    // 移除结尾的 ```（忽略大小写）
-        .replace(/\n/g, '');        // 移除换行符（可选，视情况保留）
-      
-      const parsedResult = JSON.parse(cleanJsonStr);
-      // 注意：你的 JSON 里是 "data" 字段，不是 "result"！
-      cardData = {
-        type: 'professor_list',
-        professors: parsedResult.data || [], // 用 data 字段，不是 result
-      };
-      log(`解析成功，共${parsedResult.data?.length || 0}位教授`);
-    } catch (parseError) {
-      log(`解析搜索结果失败: ${parseError.message}`);
-      cardData = null;
-    }
-  } else {
-    content = resultStr;
-    log(`未找到搜索结果`);
+  // 简化逻辑：如果对象格式中cardData为null，直接使用content作为回复内容
+  if (!cardData && content) {
+    log('对象格式中cardData为空，直接使用content作为回复内容');
+    
   }
+} else {
+  // 如果是字符串格式，直接作为回复内容
+  content = String(result);
+  log(`result类型: ${typeof result}, 直接作为回复内容`);
 }
+
 // 保存返回的对话ID到页面数据中，供下一次调用使用
 if (conversationId) {
   this.setData({ currentCid: conversationId });
   log(`已保存新的conversation_id: ${conversationId}`);
 }
-this.addMessage({
-  type: 'assistant',
-  content: content || '抱歉，暂时无法获取回复，请稍后重试。',
-  cardData: cardData
-});
+
+// 判断是否是教授信息（包含markdown格式）
+const isProfessorInfo = content && (
+  (content.includes('# ') && content.includes('匹配度')) || 
+  content.includes('###') || 
+  content.includes('- ')
+);
+
+if (isProfessorInfo) {
+  // 调用美化函数
+  const formattedContent = parseSimpleMarkdown(content);
+  console.log(formattedContent); // 查看解析结果
+  console.log('【1.解析后】类型:', typeof formattedContent, '是数组:', Array.isArray(formattedContent), '内容:', formattedContent);
+
+  // 调用 addMessage 前，检查传入的数据
+  console.log('【2.传入前】准备传入的 formattedContent:', formattedContent);
+  // 添加美化后的消息
+  this.addMessage({
+    type: 'assistant',
+    content: content, // 使用美化后的内容
+    formattedContent: formattedContent,
+    cardData: cardData,
+   
+  });
+  
+} 
+else if (!cardData && content) {
+  // 专门处理没有cardData但有content的情况
+  this.addMessage({
+    type: 'assistant',
+    content: content || '处理结果为空。',
+    cardData: null, // 明确设置为null
+  });
+}
+else {
+  // 普通回复，直接显示
+  this.addMessage({
+    type: 'assistant',
+    content: content || '抱歉，暂时无法获取回复，请稍后重试。',
+    cardData: cardData,
+
+  });
+}
+
 
 // 保存对话到历史记录
 this.saveConversationToHistory();
@@ -609,6 +748,7 @@ this.addMessage({
 this.setData({ sending: false, inputFocus: true });
 console.log('sending状态已重置为false');
 }
+
       
 
      
@@ -618,75 +758,192 @@ console.log('sending状态已重置为false');
   callCozeWorkflow: function(userInput) {
     const log = (message) => { console.log(`[callCozeWorkflow] ${message}`); };
     const conversation_id = this.data.currentCid || '';
-    log(`当前id: ${conversation_id}`);
-    // TODO: 多轮对话
+    const conversationHistory = this.getConversationHistoryForAPI();
     
-// 获取对话历史上下文（最多保留最近10轮对话）
-const conversationHistory = this.getConversationHistoryForAPI();
-    
-
-    const cozeWorkflow = new Promise((resolve, _) => {
-      wx.cloud.callFunction({
-        name: 'coze_workflow',
-        data: {
-          input: userInput,
-          conversation_id: conversation_id,// 传递对话ID
-          conversation_history: conversationHistory // 新增：传递对话历史
-  } ,
-          
-        timeout: 300000
-      }).then((res) => {
-        resolve(res);
-      });
+    // 直接返回一个Promise
+    return new Promise((resolve, reject) => {
+        wx.cloud.callFunction({
+            name: 'coze_workflow_trigger',
+            data: {
+                input: userInput,
+                conversation_id: conversation_id,
+                conversation_history: conversationHistory
+            },
+            success: async (res) => {
+                console.log('触发器调用成功:', res);
+                // 1. 检查云端调用是否成功
+                if (res.errMsg !== 'cloud.callFunction:ok') {
+                    reject(new Error(`云函数调用失败: ${res.errMsg}`));
+                    return;
+                }
+                // 2. 检查业务逻辑是否成功 (code 0)
+                if (!res.result || res.result.code !== 0) {
+                    reject(new Error(res.result?.message || '触发器业务错误'));
+                    return;
+                }
+                
+                const taskId = res.result.data.taskId;
+                log(`开始轮询任务结果，任务ID: ${taskId}`);
+                
+                try {
+                    // 3. 开始轮询，等待最终结果
+                    const finalResult = await this.pollTaskResult(taskId);
+                    log('轮询成功，获取到最终结果');
+                    console.log('finalResult结构:', finalResult); // 调试用
+                    resolve(finalResult); // 关键：这里必须调用resolve
+                } catch (pollError) {
+                    console.error('轮询过程失败:', pollError);
+                    // 4. 轮询失败，也返回一个结构化的错误结果，而不是reject，保证前端流程不崩溃
+                    resolve({
+                        content: `请求处理失败: ${pollError.message}`,
+                        cardData: null,
+                        conversation_id: conversation_id
+                    });
+                }
+            },
+            fail: (err) => {
+                console.error('调用触发器云函数失败:', err);
+                reject(err);
+            }
+        });
     });
-
-    return (async () => {
-      let result = await cozeWorkflow;
-      if (!result || !result.result || !result.result.data) {
-        console.error('云函数返回结果异常:', result);
-        throw new Error('云函数返回数据格式不正确');
-      }
-      const conversationId = result.result.data.conversation_id;
-      console.log(`API返回的新conversation_id: ${conversationId}`);
-      log(`callCozeWorkflow result: ${JSON.stringify(result)}`);
+},// 新增：轮询函数，用于查询后台任务状态
+pollTaskResult: function(taskId, maxAttempts = 150) { // 最多尝试150次（约2.5分钟）
+  const log = (message) => { console.log(`[pollTaskResult] ${message}`); };
+  return new Promise((resolve, reject) => {
+    let attempts = 0;
+    const timer = setInterval(async () => {
+      attempts++;
+      const db = wx.cloud.database();
       
-      if (result.errMsg != 'cloud.callFunction:ok') {
-        throw new Error(result.errMsg);
+      try {
+        log(`第${attempts}次查询，任务ID: ${taskId}`);
+        const res = await db.collection('search_tasks').doc(taskId).get();
+        const task = res.data;
+        
+        if (!task) {
+          clearInterval(timer);
+          reject(new Error('任务记录不存在'));
+          return;
+        }
+        
+        log(`当前任务状态: ${task.status}`);
+        
+        if (task.status === 'completed') {
+          clearInterval(timer);
+          log('任务完成，准备返回结果');
+          
+          // 增强健壮性：确保无论数据库里存的是什么，这里返回的都是一个对象
+          const taskResult = task.result;
+          if (taskResult && typeof taskResult === 'object') {
+              // 如果是对象，确保它有必备字段
+              resolve({
+                  content: taskResult.content || '',
+                  cardData: taskResult.cardData || null,
+                  conversation_id: taskResult.conversation_id || ''
+              });
+              log('已经正确返回')
+          } else {
+              // 如果数据库里的result不是对象（比如是字符串、null等），构造一个安全对象
+              console.warn('数据库result字段格式异常，进行安全转换:', taskResult);
+              resolve({
+                  content: String(taskResult || '查询完成'),
+                  cardData: null,
+                  conversation_id: ''
+              });
+              log('虽然异常，但也已经返回')
+          }
       }
-
-      result = result.result;
-      if (result.code !== 0) {
-        throw new Error(result.message );
+         else if (task.status === 'failed') {
+          clearInterval(timer);
+          log('任务处理失败');
+          reject(new Error(task.result || '后台处理失败'));
+          
+        } else if (attempts >= maxAttempts) {
+          clearInterval(timer);
+          log('轮询超时');
+          reject(new Error('查询超时，请稍后重试。'));
+        }
+        // 状态为 'processing'，继续轮询
+      } catch (err) {
+        clearInterval(timer);
+        log('轮询查询异常: ' + err.message);
+        reject(err);
       }
-
-      return result.data;
-    })();
-  },
- // 获取对话历史用于API调用（保留最近10轮对话）
- getConversationHistoryForAPI: function() {
-  const messages = this.data.messages || [];
-  const validMessages = messages.filter(msg => 
-    msg.type === 'user' || msg.type === 'assistant'
-  );
-  
-  // 短期记忆，限制历史记录数量，保留最近10轮对话（5对问答）
-  const maxHistory = 10;
-  const recentMessages = validMessages.slice(-maxHistory);
-   // 长期记忆：获取关键词和摘要
-   const longTermMemory = this.getLongTermMemory();
-  
-  // 格式化历史消息为API需要的格式
-  const history = recentMessages.map(msg => ({
-    role: msg.type === 'user' ? 'user' : 'assistant',
-    content: msg.content || ''
-  }));
-  
-  console.log(`准备传递对话历史: ${history.length}条消息`);
-  return {
-    recent_history: history,
-    long_term_memory: longTermMemory
-  };
+    }, 1000); // 每秒轮询一次
+  });
 },
+ // 修改 getConversationHistoryForAPI 函数
+getConversationHistoryForAPI: function() {
+  const messages = this.data.messages || [];
+  
+  // 只保留最近6轮对话（避免token过长）
+  const recentMessages = messages.slice(-12); // 3对问答
+  
+  // 正确格式化历史消息
+  const history = recentMessages.map(msg => {
+    let role = '';
+    if (msg.type === 'user') {
+      role = 'user';
+    } else if (msg.type === 'assistant') {
+      role = 'assistant'; // 确保是'assistant'不是'bot'
+    } else {
+      return null; // 跳过loading等非对话消息
+    }
+    
+    const historyItem ={
+      role: role,
+      content: msg.content || '',
+      content_type: 'text'
+    };
+    if (msg.cardData) {
+      // 传递教授卡片数据的精简版
+      historyItem.cardData = this.extractEssentialCardData(msg.cardData);
+    }
+    return historyItem;
+  }).filter(msg => msg !== null); // 过滤掉null
+  
+  console.log('准备发送的历史消息:', history);
+  return history;
+},
+//这个是用来提取卡片信息，防止传递大段数据的
+extractEssentialCardData: function(cardData) {
+  if (!cardData) return null;
+  
+  // 针对不同类型的卡片数据进行精简
+  switch (cardData.type) {
+    case 'professor_list':
+      return {
+        type: 'professor_list',
+        professors: (cardData.professors || []).slice(0, 6).map(prof => ({
+          name: prof.name || '',
+          areas: prof.areas || [],
+          school: prof.school || '',
+          highlights: (prof.highlights || []).slice(0, 6) // 新增亮点摘要
+
+          // 只保留必要字段，避免token过多
+        })),
+        count: cardData.professors?.length || 0
+      };
+      
+    case 'professor_detail':
+      return {
+        type: 'professor_detail',
+        name: cardData.name || '',
+        areas: cardData.areas || [],
+        school: cardData.school || '',
+        highlights: (cardData.highlights || []).slice(0, 6)
+      };
+      
+    default:
+      // 其他类型只保留最小必要信息
+      return {
+        type: cardData.type || 'unknown',
+        summary: JSON.stringify(cardData).substring(0, 200) + '...'
+      };
+  }
+},
+
 // 获取长期记忆
 getLongTermMemory: function() {
   const keywords = userManager.getUserKeywords();
@@ -699,6 +956,7 @@ getLongTermMemory: function() {
 },
   // 添加消息
   addMessage: function(msg) {
+    console.log('【3.addMessage内部】收到的 msg.formattedContent 类型:', typeof msg.formattedContent, '值:', msg.formattedContent);
     const id = 'm_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11);
     const message = Object.assign({ id: id }, msg);
     
@@ -715,6 +973,11 @@ getLongTermMemory: function() {
     this.setData({ 
       messages: messages,
       scrollToView: 'msg-' + id,
+    }, () => {
+      // !!! 这个回调函数很重要 !!!
+      const lastMsg = this.data.messages[this.data.messages.length - 1];
+      console.log('【5.setData后】存入 data 的最后一条消息: ', lastMsg);
+      console.log('【5.1】其 formattedContent 类型:', typeof lastMsg.formattedContent, '是数组吗:', Array.isArray(lastMsg.formattedContent));
     });
     
     return id;
@@ -843,6 +1106,84 @@ getLongTermMemory: function() {
       }
     }, 800);
   },
+ // 新增：解析纯文本格式的资料卡
+ parseTextCardData: function(text) {
+  const log = (message) => { console.log(`[parseTextCardData] ${message}`); };
+  
+  // 检查是否包含资料卡关键词
+  const hasCardKeywords = text.includes('资料卡') || 
+                        text.includes('教授列表') || 
+                        text.includes('**单位**') || 
+                        text.includes('**职称**') ||
+                        text.includes('**研究方向**');
+  
+  if (!hasCardKeywords) {
+    log('未找到资料卡关键词');
+    return null;
+  }
+  
+  try {
+    // 解析教授信息
+    const professors = [];
+    
+    // 使用正则表达式匹配每个教授的信息块
+    const professorBlocks = text.match(/\d+\.\s*\*\*([^*]+)\*\*教授([\s\S]*?)(?=\d+\.\s*\*\*|$)/g);
+    
+    if (!professorBlocks || professorBlocks.length === 0) {
+      log('未找到教授信息块');
+      return null;
+    }
+    
+    log(`找到${professorBlocks.length}个教授信息块`);
+    
+    for (const block of professorBlocks) {
+      try {
+        // 提取教授姓名
+        const nameMatch = block.match(/\d+\.\s*\*\*([^*]+)\*\*教授/);
+        if (!nameMatch) continue;
+        
+        const name = nameMatch[1].trim();
+        
+        // 提取各项信息
+        const unitMatch = block.match(/\*\*单位\*\*:\s*([^\n]+)/);
+        const titleMatch = block.match(/\*\*职称\*\*:\s*([^\n]+)/);
+        const researchMatch = block.match(/\*\*研究方向\*\*:\s*([^\n]+)/);
+        const emailMatch = block.match(/\*\*邮箱\*\*:\s*([^\n]+)/);
+        const homepageMatch = block.match(/\*\*个人主页\*\*:\s*\[([^\]]+)\]\(([^)]+)\)/);
+        const introMatch = block.match(/\*\*简介\*\*:\s*([^\n]+)/);
+        
+        const professor = {
+          name: name,
+          school: unitMatch ? unitMatch[1].trim() : '',
+          title: titleMatch ? titleMatch[1].trim() : '',
+          research_direction: researchMatch ? researchMatch[1].trim() : '',
+          email: emailMatch ? emailMatch[1].trim() : '',
+          homepage: homepageMatch ? homepageMatch[2].trim() : '',
+          introduction: introMatch ? introMatch[1].trim() : ''
+        };
+        
+        // 生成教授ID（使用姓名和邮箱的组合）
+        professor.profId = `prof_${name}_${professor.email || Date.now()}`;
+        
+        professors.push(professor);
+        log(`解析教授: ${name}`);
+      } catch (error) {
+        log(`解析单个教授信息失败: ${error.message}`);
+      }
+    }
+    
+    if (professors.length > 0) {
+      return {
+        type: 'professor_list',
+        professors: professors
+      };
+    }
+  } catch (error) {
+    log(`解析纯文本资料卡失败: ${error.message}`);
+  }
+  
+  return null;
+},
 
   /**
    * 生命周期函数--监听页面初次渲染完成
@@ -853,10 +1194,39 @@ getLongTermMemory: function() {
    * 生命周期函数--监听页面显示
    */
   onShow: function() {
+    console.log('onshow已经被调用');
     // 重新加载收藏列表，以防从收藏页面返回后数据有变化
     this.loadFavoritesList();
+     // 检查是否有通过分享链接进入的参数
+     const app = getApp();
+     if (app.globalData.shareProfParams) {
+       const params = app.globalData.shareProfParams;
+       console.log('从分享链接进入，参数:', params);
+       
+       // 显示对应的教授
+       this.showSharedProfessor(params);
+       
+       // 清空参数，避免重复触发
+       app.globalData.shareProfParams = null;
+       
+       // 给用户提示
+       wx.showToast({
+         title: `正在加载${params.name}教授信息`,
+         icon: 'none'
+       });
+     }
   },
-
+  showSharedProfessor: function(params) {
+    // 根据参数查找并显示教授
+    // 这里需要根据你的数据结构来实现
+    if (params.profId) {
+      // 通过ID查找
+      this.loadProfessorById(params.profId);
+    } else if (params.name) {
+      // 通过姓名查找（可能不准确）
+      this.searchProfessorByName(params.name);
+    }
+  },
   /**
    * 生命周期函数--监听页面隐藏
    */
@@ -885,15 +1255,7 @@ getLongTermMemory: function() {
    */
   onReachBottom: function() {},
 
-  /**
-   * 用户点击右上角分享
-   */
-  onShareAppMessage: function() {
-    return {
-      title: '科研合作智能助手',
-      path: '/pages/index/index'
-    }
-  },
+  
 
   // 多选和分享功能
   onMessageLongPress: function(e) {
@@ -1178,18 +1540,34 @@ getLongTermMemory: function() {
       // 查找是否已存在该对话
       const existingIndex = conversations.findIndex(conv => conv.conversationId === currentCid);
       
-      // 获取最后一条消息作为预览
-      const lastMessage = messages[messages.length - 1];
-      const lastMsg = lastMessage ? 
-        (lastMessage.content || '教授推荐结果') : '新对话';
+      let previewContent = '新对话';
+    
+      // 方法1：找第一条有实际内容的助理消息
+      const firstAssistantMessage = messages.find(msg => 
+        msg.type === 'assistant' && 
+        msg.content && 
+        typeof msg.content === 'string'
+      );
       
+      if (firstAssistantMessage && firstAssistantMessage.content) {
+        previewContent = firstAssistantMessage.content;
+      } 
+      // 方法2：如果找不到字符串内容，用固定的预览文本
+      else if (messages.some(msg => msg.type === 'assistant')) {
+        // 有助理消息但不是字符串（比如富文本）
+        const assistantCount = messages.filter(msg => msg.type === 'assistant').length;
+        previewContent = `进行了${assistantCount}次回复`;
+      }
+      const safePreview = String(previewContent || '新对话');
+    const lastMsg = safePreview.length > 30 ? safePreview.substring(0, 30) + '...' : safePreview;
+    
       // 生成或更新对话标题
       const title = this.data.currentTitle || this.generateConversationTitle(messages);
       
       const conversationData = {
         conversationId: currentCid,
         title: title,
-        lastMsg: lastMsg.substring(0, 30) + (lastMsg.length > 30 ? '...' : ''),
+        lastMsg: lastMsg,
         updatedAt: Date.now(),
         displayTime: this.formatTime(Date.now()),
         messageCount: messages.length

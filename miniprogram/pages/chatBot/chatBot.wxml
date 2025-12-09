@@ -152,8 +152,17 @@
             <image wx:if="{{item.selected}}" class="checkbox-icon" src="/assets/icons/tick.svg" mode="aspectFit"/>
             <view wx:else class="checkbox-empty"></view>
           </view>
+          <!-- 富文本消息用 rich-text -->
+          <view wx:if="{{item.isRichText}}" class="message-content">
+            <towxml nodes="{{item.formattedContent}}"></towxml>
+          </view>
+  
+          <!-- 普通文本消息直接显示 -->
+          <view wx:else class="message-content">
+            {{item.content}}
+          </view>
+
           
-          <view class="message-content">{{item.content}}</view>
           <!-- 教授卡片 -->
           <view wx:if="{{item.cardData}}" class="card-container">
             <custom-professor-list cardData="{{item.cardData}}" multiSelectMode="{{multiSelectMode}}" messageSelected="{{item.selected}}"></custom-professor-list>
@@ -170,7 +179,7 @@
                 <text class="progress-percentage">{{item.progress || 0}}%</text>
               </view>
               <view class="progress-bar">
-                <view class="progress-fill" style="width: {{item.progress || 0}}%"></view>
+                <view class="progress-fill" style="width: {{(item.progress || 0)+ '%' }}"></view>
               </view>
             </view>
           </view>

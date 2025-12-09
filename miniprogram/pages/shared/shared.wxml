@@ -27,6 +27,16 @@
         <!-- 助手消息 -->
         <view wx:elif="{{item.type === 'assistant'}}" class="assistant-message">
           <view wx:if="{{item.content}}" class="message-content">{{item.content}}</view>
+          <!-- 富文本消息 -->
+          <view wx:if="{{item.isRichText && item.content}}">
+            <towxml nodes="{{item.formattedContent}}"></towxml>
+          </view>
+          <!-- 普通文本消息 -->
+          <view wx:elif="{{item.content && !item.isRichText}}">
+            {{item.content}}
+          </view>
+  
+  
           <!-- 教授卡片 -->
           <view wx:if="{{item.cardData}}" class="card-container">
             <custom-professor-list cardData="{{item.cardData}}" readOnly="{{true}}"></custom-professor-list>

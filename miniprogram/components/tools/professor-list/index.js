@@ -35,6 +35,7 @@ Component({
   },
   data: {
     candidates: [],
+    favStatus: {}
   },
   lifetimes: {
     attached: function() {
@@ -141,110 +142,122 @@ Component({
               isFav: favSet.has(originalProfId), // 使用原始ID检查收藏状态
             };
           });
-          this.setData({ candidates: this.decorate(mapped) });
+          this.setData({ 
+            candidates: this.decorate(mapped),
+            favStatus: this.buildFavStatus(mapped) // 新增
+
+          });
         }
       } catch (e) {
         console.log("professor-list parse error (cardData)", e);
       }
     },
-    onFavorite: function(e) {
-      const dataset = e.currentTarget.dataset || {};
-      const profId = dataset.id;
-      const index = parseInt(dataset.index);
-      
+    // 新增方法：构建 favStatus 对象
+buildFavStatus: function(professors) {
+  const favStatus = {};
+  professors.forEach(prof => {
+    favStatus[prof.profId] = prof.isFav || false;
+  });
+  return favStatus;
+},
+onFavorite: function(e) {
+  const dataset = e.currentTarget.dataset || {};
+  const index = parseInt(dataset.index);
+  const { id: profId } = e.currentTarget.dataset; // 获取当前卡片的profId
+  
+  if (!profId || isNaN(index) || index < 0 || index >= this.data.candidates.length) {
+    console.error('Invalid profId or index:', { profId, index, length: this.data.candidates.length });
+    return;
+  }
+  
+  // 更新 candidates 数组
+  const newCandidates = this.data.candidates.map((prof, i) => {
+    if (i === index && prof.profId === profId) {
+      return { ...prof, isFav: !prof.isFav };
+    }
+    return { ...prof };
+  });
+  
+  const newFavState = newCandidates[index].isFav;
+  
+  // ✅ 关键修复：同时更新 favStatus 对象
+  const newFavStatus = {
+    ...this.data.favStatus, // 保留其他卡片的收藏状态
+    [profId]: newFavState   // 更新当前卡片的收藏状态
+  };
+  
+  // 强制更新UI
+  this.setData({ 
+    candidates: newCandidates,
+    favStatus: newFavStatus  // 新增这行，让WXML绑定的数据也更新
 
+  });
+  
+  
+  // 处理本地存储和云端同步
+  try {
+    const existed = wx.getStorageSync('favorites') || [];
+    const favMap = new Map(existed.map(function(x) { return [x.profId, x]; }));
+    
+    if (newFavState) {
+      // 添加到收藏
+      const profData = Object.assign({}, newCandidates[index], { updatedAt: Date.now() });
+      favMap.set(profId, profData);
       
-      if (!profId || isNaN(index) || index < 0 || index >= this.data.candidates.length) {
-        console.error('Invalid profId or index:', { profId, index, length: this.data.candidates.length });
-        return;
-      }
+      // 云端添加
+      wx.cloud.callFunction({ 
+        name: 'favorites', 
+        data: { 
+          action: 'add', 
+          prof: profData
+        } 
+      }).catch(err => console.error('Cloud add failed:', err));
+    } else {
+      // 从收藏移除
+      favMap.delete(profId);
       
-      // 完全重新构建数组，确保每个对象都是新的引用
-      const newCandidates = this.data.candidates.map((prof, i) => {
-        if (i === index && prof.profId === profId) {
-          // 只修改目标教授的收藏状态
-          const newProf = Object.assign({}, prof, { 
-            isFav: !prof.isFav 
-          });
-          
-          return newProf;
-        } else {
-          // 其他教授保持原状但创建新对象引用
-          return Object.assign({}, prof);
-        }
-      });
-      
-             // 强制更新UI
-       this.setData({ 
-         candidates: newCandidates 
-       });
-      
-      const newFavState = newCandidates[index].isFav;
-      
-      // 处理本地存储和云端同步
-      try {
-        const existed = wx.getStorageSync('favorites') || [];
-        const favMap = new Map(existed.map(function(x) { return [x.profId, x]; }));
-        
-        if (newFavState) {
-          // 添加到收藏
-          const profData = Object.assign({}, newCandidates[index], { updatedAt: Date.now() });
-          favMap.set(profId, profData);
-          
-          // 云端添加
-          wx.cloud.callFunction({ 
-            name: 'favorites', 
-            data: { 
-              action: 'add', 
-              prof: profData
-            } 
-          }).catch(err => console.error('Cloud add failed:', err));
-        } else {
-          // 从收藏移除
-          favMap.delete(profId);
-          
-          // 云端移除
-          wx.cloud.callFunction({ 
-            name: 'favorites', 
-            data: { 
-              action: 'remove', 
-              profId: profId 
-            } 
-          }).catch(err => console.error('Cloud remove failed:', err));
-        }
-        
-        wx.setStorageSync('favorites', Array.from(favMap.values()));
-        
-      } catch (err) {
-        console.error('Storage error:', err);
-      }
-      
-      // 简单的点击反馈通过CSS处理
-      
-      wx.showToast({ 
-        title: newFavState ? "已收藏" : "已取消", 
-        icon: "success" 
-      });
-      
-      // 发送全局事件通知其他组件更新  
-      wx.$emit && wx.$emit('favoriteChanged', { profId, isFav: newFavState });
-    },
+      // 云端移除
+      wx.cloud.callFunction({ 
+        name: 'favorites', 
+        data: { 
+          action: 'remove', 
+          profId: profId 
+        } 
+      }).catch(err => console.error('Cloud remove failed:', err));
+    }
+    
+    wx.setStorageSync('favorites', Array.from(favMap.values()));
+    
+  } catch (err) {
+    console.error('Storage error:', err);
+  }
+  
+  wx.showToast({ 
+    title: newFavState ? "已收藏" : "已取消", 
+    icon: "success" 
+  });
+  
+  // 发送全局事件通知其他组件更新  
+  wx.$emit && wx.$emit('favoriteChanged', { profId, isFav: newFavState });
+},
     
     // 点击邮箱 - 发送邮件
     copyToClipboard: function(e) {
       const text = e.currentTarget.dataset.text;
       if (!text) return;
       
-      // 判断是否是邮箱
-      const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text);
       
-      if (isEmail) {
+      // 判断是否是邮箱
+      //const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text);
+      
+     /* if (isEmail) {
         // 如果是邮箱，打开邮件应用
         wx.navigateTo({
           url: '/pages/webview/webview?url=' + encodeURIComponent('mailto:' + text) + 
                '&title=' + encodeURIComponent('发送邮件')
         });
-      } else {
+      } */
+      //else {
         // 其他内容（如电话）复制到剪贴板
         wx.setClipboardData({
           data: text,
@@ -261,7 +274,7 @@ Component({
             });
           }
         });
-      }
+     // }
     },
     
     // 打开个人主页 - 使用webview打开
@@ -290,58 +303,98 @@ Component({
       this.setData({ candidates: candidates });
     },
 
-    // 教授分享功能
-    onProfessorShare: function(e) {
-      const prof = e.currentTarget.dataset.prof;
-      if (!prof) return;
 
-      // 生成教授分享数据
-      const shareData = {
-        type: 'professor',
-        professor: {
-          name: prof.name,
-          school: prof.school,
-          areas: prof.areas,
-          email: prof.email,
-          office: prof.office,
-          phone: prof.phone,
-          homepages: prof.homepages,
-          highlights: prof.highlights,
-          score: prof.displayScore
-        },
-        timestamp: Date.now()
-      };
-
-      // 生成分享链接
-      const shareUrl = `https://your-domain.com/professor?data=${encodeURIComponent(JSON.stringify(shareData))}`;
-
-      wx.showActionSheet({
-        itemList: ['微信分享', '复制分享链接', '收藏教授'],
-        success: (res) => {
-          switch(res.tapIndex) {
-            case 0: // 微信分享
-              wx.shareAppMessage({
-                title: `推荐教授：${prof.name}`,
-                path: `/pages/professor/professor?data=${encodeURIComponent(JSON.stringify(shareData))}`,
-                success: () => {
-                  wx.showToast({ title: '分享成功', icon: 'success' });
-                }
-              });
-              break;
-            case 1: // 复制链接
-              wx.setClipboardData({
-                data: shareUrl,
-                success: () => {
-                  wx.showToast({ title: '链接已复制', icon: 'success' });
-                }
-              });
-              break;
-            case 2: // 收藏教授
-              this.onFavorite(e);
-              break;
-          }
-        }
+  // 改进的复制链接功能
+copyProfLink: function(prof) {
+  // 方案A：小程序路径（带完整参数）
+  const pagePath = `/pages/chat/chat?action=showProf&profId=${prof.profId || ''}&name=${encodeURIComponent(prof.name || '')}&school=${encodeURIComponent(prof.school || '')}`;
+  
+  // 方案B：生成一个友好的提示链接
+  const friendlyLink = `【浙大教授推荐】小程序路径：${pagePath}\n\n复制此路径后，在小程序内可快速访问${prof.name}教授资料卡`;
+  
+  // 或者方案C：生成一个带指引的文案
+  const guideText = `【${prof.name}教授资料卡分享】\n` +
+                    `🎓 ${prof.school || ''}\n` +
+                    `⭐ 匹配度: ${prof.score || prof.displayScore || 0}%\n` +
+                    `📚 研究方向: ${prof.areas ? prof.areas.join('、') : ''}\n` +
+                    `---\n` +
+                    `小程序内访问路径：${pagePath}\n` +
+                    `（复制路径，打开小程序后会自动跳转）`;
+  
+  wx.setClipboardData({
+    data: guideText,  // 或者用 friendlyLink
+    success: () => {
+      wx.showToast({ 
+        title: '链接已复制', 
+        icon: 'success',
+        duration: 2000
       });
+      
+      // 可选：显示如何使用这个链接
+      setTimeout(() => {
+        wx.showModal({
+          title: '如何使用复制的链接？',
+          content: '请将链接粘贴到微信对话框，然后回到本小程序，我们会自动检测并跳转到教授页面。',
+          showCancel: false,
+          confirmText: '知道了'
+        });
+      }, 1500);
+    }
+  });
+},
+onProfessorShare: function(e) {
+  const prof = e.currentTarget.dataset.prof;
+  if (!prof) {
+    console.error('分享时未获取到教授数据');
+    wx.showToast({ title: '分享失败，数据异常', icon: 'none' });
+    return;
+  }
+
+  console.log('开始分享教授数据:', prof);
+  
+  // 1. 保存教授数据到全局，让页面能获取到
+  const app = getApp();
+  app.globalData.shareProfessorData = prof;
+  
+  // 2. 显示分享菜单
+  wx.showActionSheet({
+    itemList: ['分享给好友', '复制分享文案'],
+    success: (res) => {
+      switch(res.tapIndex) {
+        case 0: // 分享给好友
+          // 触发页面分享
+          this.triggerPageShare(prof);
+          break;
+          
+        case 1: // 复制分享文案
+          this.copyProfInfo(prof);
+          break;
+      }
     },
-  },
-}); 
+    fail: () => {
+      wx.showToast({ title: '操作取消', icon: 'none' });
+    }
+  });
+},
+
+// 触发页面级分享
+triggerPageShare: function(prof) {
+  // 获取父页面（聊天页面）的实例
+  const pages = getCurrentPages();
+  const currentPage = pages[pages.length - 1]; // 当前页面（聊天页面）
+  
+  // 将教授数据设置到页面
+  currentPage.setData({
+    currentShareProf: prof
+  });
+  
+  // 显示提示，让用户点击右上角分享
+  wx.showModal({
+    title: '分享给好友',
+    content: `将${prof.name}教授的信息分享给好友\n\n请点击右上角"···"按钮，选择"发送给朋友"`,
+    showCancel: false,
+    confirmText: '我知道了'
+  });
+},
+
+}})

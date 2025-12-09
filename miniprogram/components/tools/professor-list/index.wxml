@@ -1,9 +1,10 @@
+<!-- 这是正确的代码，请直接替换 -->
 <view class="professor-list" wx:if="{{candidates && candidates.length}}">
   <block wx:for="{{candidates}}" wx:for-item="prof" wx:for-index="idx" wx:key="uniqueKey">
     <view class="prof-card {{prof.displayScore < 30 ? 'low-match' : ''}}">
       <!-- 右上角操作按钮 (非只读模式才显示) -->
       <view wx:if="{{!readOnly}}" class="corner-actions">
-        <view class="action-btn star-btn {{prof.isFav ? 'favorited' : ''}}" data-id="{{prof.profId}}" data-index="{{idx}}" bindtap="onFavorite">
+        <view class="action-btn star-btn {{favStatus[prof.profId] ? 'favorited' : ''}}" data-id="{{prof.profId}}" data-index="{{idx}}" bindtap="onFavorite">
           <image class="action-icon" src="/assets/icons/star.svg" mode="aspectFit"/>
         </view>
         <view class="action-btn share-btn" data-prof="{{prof}}" bindtap="onProfessorShare">
@@ -14,7 +15,6 @@
       <!-- 教授姓名和匹配度 -->
       <view class="prof-header {{readOnly ? 'read-only' : ''}}">
         <text class="prof-name">{{prof.name}}</text>
-        <!-- 优先显示score，如果没有再显示displayScore -->
         <view class="match-score" wx:if="{{prof.score >= 0 || prof.displayScore >= 0}}">
           <text class="score-text">匹配度{{prof.score !== undefined && prof.score !== null ? prof.score : prof.displayScore}}%</text>
         </view>
@@ -37,10 +37,20 @@
         </block>
       </view>
 
-      <!-- 重点信息展示 -->
+      <!-- 重点信息展示（已修改为Flex新结构） -->
       <view class="highlights" wx:if="{{prof.highlights && prof.highlights.length}}">
-        <block wx:for="{{prof.highlights}}" wx:for-item="highlight" wx:for-index="hlIdx" wx:key="hlIdx">
-          <view class="highlight-item">• {{highlight}}</view>
+        <block wx:for="{{prof.highlights}}" wx:for-item="highlight" wx:key="hlIdx">
+          <view class="highlight-list-item">
+            <text class="highlight-bullet">• </text>
+            <view class="highlight-content">
+              <block wx:if="{{isMarkdown(highlight)}}">
+                <towxml class="markdown-content" nodes="{{parseMarkdown(highlight)}}" />
+              </block>
+              <block wx:else>
+                <text class="plain-text">{{highlight}}</text>
+              </block>
+            </view>
+          </view>
         </block>
       </view>
 
@@ -62,19 +72,25 @@
           <text class="contact-label">个人主页：</text>
           <view class="homepage-list">
             <block wx:for="{{prof.homepages}}" wx:for-item="homepage" wx:for-index="hpIdx" wx:key="hpIdx">
-              <text class="contact-value contact-link homepage-link" data-url="{{homepage}}" bindtap="openHomepage">• 点击访问主页{{hpIdx > 0 ? ' ' + (hpIdx + 1) : ''}}</text>
+              <text class="contact-value contact-link homepage-link" data-text="{{homepage}}" bindtap="copyToClipboard">• 点击访问主页{{hpIdx > 0 ? ' ' + (hpIdx + 1) : ''}}</text>
             </block>
           </view>
         </view>
-        <!-- 兼容旧版本的单个主页字段 -->
         <view class="contact-item" wx:elif="{{prof.homepage}}">
           <text class="contact-label">主页：</text>
-          <text class="contact-value contact-link homepage-link" data-url="{{prof.homepage}}" bindtap="openHomepage">点击访问主页</text>
+          <text class="contact-value contact-link homepage-link" data-text="{{prof.homepage}}" bindtap="copyToClipboard">点击访问主页</text>
         </view>
       </view>
-    </view>
-  </block>
-</view>
+
+      <!-- 分享卡片Canvas (隐藏状态) -->
+      <view class="share-canvas-container" style="position: absolute; left: -9999rpx; width: 0; height: 0;">
+        <canvas type="2d" canvas-id="shareCanvas{{idx}}" style="width: 600rpx; height: 800rpx;"></canvas>
+      </view>
+      
+    </view> <!-- 正确闭合: prof-card -->
+  </block> <!-- 正确闭合: 遍历candidates的block -->
+</view> <!-- 正确闭合: professor-list -->
+
 <view wx:else class="empty-state">
   <text class="empty-text">暂无推荐结果</text>
-</view> 
+</view>

@@ -9,7 +9,8 @@
     "pages/webview/webview"
   ],
   "usingComponents": {
-    "custom-professor-list": "/components/tools/professor-list/index"
+    "custom-professor-list": "/components/tools/professor-list/index",
+    "towxml": "/components/towxml/towxml"
   },
   "window": {
     "navigationBarBackgroundColor": "#ffffff",
@@ -53,4 +54,5 @@
     "uploadFile": 60000,
     "downloadFile": 60000
   }
+  
 }

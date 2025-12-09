@@ -165,8 +165,8 @@
   margin-bottom: 16rpx;
 }
 
-.highlight-item {
-  font-size: 26rpx; /* 从28rpx减少到26rpx */
+/*.highlight-item {
+  font-size: 26rpx; 
   color: #5a6c7d;
   line-height: 1.4;
   margin-bottom: 4rpx;
@@ -179,8 +179,53 @@
   color: #bdc3c7;
   position: absolute;
   left: -4rpx;
+}*/
+/* 建议的统一样式，放在一个确定生效的地方 */
+.highlight-item {
+  display: block; /* 确保是块级元素 */
+  font-size: 26rpx;
+  color: #5a6c7d;
+  line-height: 1.4;
+  margin-bottom: 8rpx; /* 给个稍大的间距 */
+  /* 移除原来可能冲突的 padding-left 和 position */
+  padding-left: 0;
+  position: static;
+}
+/* 不再使用 ::before，改用内联元素或结构 */
+/* 列表项容器 */
+.highlight-list-item {
+  display: flex;
+  align-items: flex-start; /* 顶部对齐 */
+  margin-bottom: 10rpx;
+  line-height: 1.5;
 }
 
+/* 圆点 */
+.highlight-bullet {
+  flex-shrink: 0; /* 防止被压缩 */
+  color: #bdc3c7; /* 圆点颜色 */
+  margin-right: 8rpx;
+  line-height: inherit;
+}
+
+/* 内容区域，占据剩余空间 */
+.highlight-content {
+  flex: 1;
+}
+
+/* Markdown 内容样式 */
+.markdown-content {
+  font-size: 26rpx !important; /* 使用 !important 确保覆盖 towxml 默认样式 */
+  color: #5a6c7d !important;
+  line-height: inherit;
+}
+
+/* 纯文本内容样式 */
+.plain-text {
+  font-size: 26rpx;
+  color: #5a6c7d;
+  line-height: inherit;
+}
 /* 联系信息 - 更简洁的设计 */
 .contact-info {
   display: flex;
