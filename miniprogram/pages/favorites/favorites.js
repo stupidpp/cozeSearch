@@ -169,6 +169,7 @@ Page({
   },*/
   removeFavorite: function(e) {
     const profId = e.currentTarget.dataset.id;
+    const uniqueKey = e.currentTarget.dataset.uniqueKey;
     if (!profId) return;
     const that = this;
   
@@ -195,7 +196,7 @@ Page({
             
             // ✅ 3. 发送事件，通知列表组件更新UI（按钮变红）
             if (wx.$emit) {
-              wx.$emit('favoriteChanged', { profId: profId, isFav: false });
+              wx.$emit('favoriteChanged', { profId:profId, uniqueKey:uniqueKey,isFav: false });
             }
             
             // ✅ 4. 更新收藏页UI（应用去重逻辑）

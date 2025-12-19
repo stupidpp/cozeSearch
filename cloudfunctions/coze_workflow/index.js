@@ -1174,7 +1174,8 @@ function parseProfesorInfoFromText(text) {
             highlights: finalHighlights, // 研究成果等无序列表（绝对不包含联系方式）
             score: Math.min(score, 100),
             displayScore: Math.min(score, 100),
-            profId: `prof_${Date.now()}_${index}`,
+            profId: generateStableProfId(name, school, email),
+
             documentId: `doc_${Date.now()}_${index}`,
           };
 
@@ -1212,7 +1213,21 @@ function parseProfesorInfoFromText(text) {
 
   return null;
 }
-
+function generateStableProfId(name, school, email = '') {
+  // 使用MD5或简单哈希生成稳定ID
+  const baseString = `${name}_${school}_${email}`.toLowerCase().replace(/\s+/g, '_');
+  
+  // 简单的哈希函数，确保相同教授生成相同ID
+  let hash = 0;
+  for (let i = 0; i < baseString.length; i++) {
+    const char = baseString.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // 转换为32位整数
+  }
+  
+  // 使用绝对值和十六进制表示
+  return `prof_${Math.abs(hash).toString(36)}`;
+}
 // 从数据库直接查询教授信息
 async function queryProfessorsFromDatabase(professorName, responseText) {
   try {
@@ -1314,7 +1329,7 @@ async function queryProfessorsFromDatabase(professorName, responseText) {
           highlights: Array.isArray(matchedProf.highlights)
             ? matchedProf.highlights.slice(0, 3)
             : [],
-          score: 85 + Math.random() * 10, // 随机分数
+          score: 85 + Math.random() * 10, // 随机分数id
           displayScore: 85 + Math.random() * 10,
           profId: matchedProf.profId || `prof_db_${Date.now()}`,
           documentId: `doc_db_${Date.now()}`,
@@ -1680,7 +1695,8 @@ function processChatStream(stream) {
   };
   return new Promise((resolve, _) => {
     let fullResult = null;
-    let eventBuffer = stream.on("error", (err) => {
+    let eventBuffer = ' ';
+    stream.on("error", (err) => {
       log(`Stream error: ${err.message}`);
       resolve(null);
     });
@@ -2028,106 +2044,136 @@ ${historyText}
     };
     
     // 解析 search_result 标签
-    const parseSearchResult = (content) => {
-      const result = {
-        textContent: "",
-        cardData: null,
-      };
-  
-      const searchResultRegex = /<search_result>([\s\S]*?)<\/search_result>/;
-      const match = content.match(searchResultRegex);
-  
-      if (match) {
-        // 提取文本内容（<search_result>标签之前的部分）
-        result.textContent = content.substring(0, match.index).trim();
-        
-        // 提取 JSON 字符串
-        let jsonContent = match[1].trim();
-        
-        console.log("原始 JSON 长度:", jsonContent.length);
-        
-        try {
-          // 首先尝试直接解析
-          console.log("尝试直接解析 JSON...");
-          const parsedData = JSON.parse(jsonContent);
-          console.log("直接解析成功");
-          result.cardData = {
-            type: "professor_list",
-            professors: parsedData.result?.professors || [],
+        const parseSearchResult = (content) => {
+          const result = {
+            textContent: "",
+            cardData: null,
           };
-        } catch (e) {
-          console.log("直接解析失败，尝试修复 JSON:", e.message);
-          
-          // 尝试修复 JSON
-          try {
-            // 方法1：修复双引号问题
-            const fixedJson1 = fixJSONQuotes(jsonContent);
-            console.log("修复后长度:", fixedJson1.length);
+    
+          // 生成稳定教授ID的函数
+          const generateStableProfId = (name, school, email = '') => { 
+            // 使用姓名、学校、邮箱生成稳定ID 
+            const baseString = `${name}_${school}_${email}`.toLowerCase().replace(/\s+/g, '_');
             
-            // 方法2：替换所有未转义的双引号（更激进的方法）
-            let fixedJson2 = jsonContent;
-            // 匹配字符串中的未转义双引号：前面不是反斜杠的双引号，且不在键名位置
-            fixedJson2 = fixedJson2.replace(/(?<!\\)"(?=\s*[\]},])/g, '\\"');
-            fixedJson2 = fixedJson2.replace(/(?<=\[|,|:)\s*"(?=.*?(?:获得|为|部署|提供))/g, (match) => {
-              // 这里处理特定模式的字符串，替换内部双引号
-              return match.replace(/"/g, '\\"');
-            });
+            // 简单的哈希函数，确保相同教授生成相同ID 
+            let hash = 0; 
+            for (let i = 0; i < baseString.length; i++) { 
+              const char = baseString.charCodeAt(i); 
+              hash = ((hash << 5) - hash) + char; 
+              hash = hash & hash; // 转换为32位整数 
+            } 
             
-            // 优先尝试修复后的 JSON
-            let parsedData;
+            // 使用绝对值和十六进制表示 
+            return `prof_${Math.abs(hash).toString(36)}`; 
+          };
+    
+          const searchResultRegex = /<search_result>([\s\S]*?)<\/search_result>/;
+          const match = content.match(searchResultRegex);
+    
+          if (match) {
+            // 提取文本内容（<search_result>标签之前的部分）
+            result.textContent = content.substring(0, match.index).trim();
+            
+            // 提取 JSON 字符串
+            let jsonContent = match[1].trim();
+            
+            console.log("原始 JSON 长度:", jsonContent.length);
+            
             try {
-              parsedData = JSON.parse(fixedJson1);
-              console.log("方法1修复成功");
-            } catch (e1) {
-              console.log("方法1失败，尝试方法2");
-              parsedData = JSON.parse(fixedJson2);
-              console.log("方法2修复成功");
-            }
-            
-            result.cardData = {
-              type: "professor_list",
-              professors: parsedData.result?.professors || [],
-            };
-          } catch (e2) {
-            console.error("所有修复尝试都失败:", e2);
-            
-            // 最后尝试：手动提取教授信息
-            try {
-              // 使用正则表达式直接提取教授数据
-              const professorRegex = /"name":"([^"]+)",[^}]+"school":"([^"]+)"/g;
-              const professors = [];
-              let match;
+              // 首先尝试直接解析
+              console.log("尝试直接解析 JSON...");
+              const parsedData = JSON.parse(jsonContent);
+              console.log("直接解析成功");
               
-              while ((match = professorRegex.exec(jsonContent)) !== null) {
-                professors.push({
-                  name: match[1],
-                  school: match[2],
-                  // 可以添加更多字段...
+              // 为每个教授生成稳定的profId
+              const professors = (parsedData.result?.professors || []).map((prof, index) => ({
+                ...prof,
+                profId: generateStableProfId(prof.name, prof.school, prof.email || '')
+              }));
+              
+              result.cardData = {
+                type: "professor_list",
+                professors: professors,
+              };
+            } catch (e) {
+              console.log("直接解析失败，尝试修复 JSON:", e.message);
+              
+              // 尝试修复 JSON
+              try {
+                // 方法1：修复双引号问题
+                const fixedJson1 = fixJSONQuotes(jsonContent);
+                console.log("修复后长度:", fixedJson1.length);
+                
+                // 方法2：替换所有未转义的双引号（更激进的方法）
+                let fixedJson2 = jsonContent;
+                // 匹配字符串中的未转义双引号：前面不是反斜杠的双引号，且不在键名位置
+                fixedJson2 = fixedJson2.replace(/(?<!\\)"(?=\s*[\]},])/g, '\\"');
+                fixedJson2 = fixedJson2.replace(/(?<=\[|,|:)\s*"(?=.*?(?:获得|为|部署|提供))/g, (match) => {
+                  // 这里处理特定模式的字符串，替换内部双引号
+                  return match.replace(/"/g, '\\"');
                 });
-              }
-              
-              if (professors.length > 0) {
-                console.log("通过正则提取到教授:", professors.length);
+                
+                // 优先尝试修复后的 JSON
+                let parsedData;
+                try {
+                  parsedData = JSON.parse(fixedJson1);
+                  console.log("方法1修复成功");
+                } catch (e1) {
+                  console.log("方法1失败，尝试方法2");
+                  parsedData = JSON.parse(fixedJson2);
+                  console.log("方法2修复成功");
+                }
+                
+                // 为每个教授生成稳定的profId
+                const professors = (parsedData.result?.professors || []).map((prof, index) => ({
+                  ...prof,
+                  profId: generateStableProfId(prof.name, prof.school, prof.email || '')
+                }));
+                
                 result.cardData = {
                   type: "professor_list",
                   professors: professors,
                 };
-              } else {
-                throw new Error("无法提取教授数据");
+              } catch (e2) {
+                console.error("所有修复尝试都失败:", e2);
+                
+                // 最后尝试：手动提取教授信息
+                try {
+                  // 使用正则表达式直接提取教授数据
+                  const professorRegex = /"name":"([^"]+)",[^}]+"school":"([^"]+)"/g;
+                  const professors = [];
+                  let match;
+                  
+                  while ((match = professorRegex.exec(jsonContent)) !== null) {
+                    professors.push({
+                      name: match[1],
+                      school: match[2],
+                      profId: generateStableProfId(match[1], match[2], '')
+                    });
+                  }
+                  
+                  if (professors.length > 0) {
+                    console.log("通过正则提取到教授:", professors.length);
+                    result.cardData = {
+                      type: "professor_list",
+                      professors: professors,
+                    };
+                  } else {
+                    throw new Error("无法提取教授数据");
+                  }
+                } catch (e3) {
+                  console.error("正则提取也失败:", e3);
+                  // 如果所有解析都失败，只返回文本内容
+                  result.textContent = content;
+                }
               }
-            } catch (e3) {
-              console.error("正则提取也失败:", e3);
-              // 如果所有解析都失败，只返回文本内容
-              result.textContent = content;
             }
+          } else {
+            result.textContent = content;
           }
-        }
-      } else {
-        result.textContent = content;
-      }
-  
-      return result;
-    };
+      
+          return result;
+        };
   
     const parsedResult = parseSearchResult(fullResult.content);
     finalResult = parsedResult.textContent;

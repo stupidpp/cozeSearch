@@ -7,7 +7,6 @@
   width: 100%;
   max-width: none;
   box-sizing: border-box;
-  overflow: visible;
 }
 
 /* 教授卡片 - 清新简洁风格 */
@@ -31,12 +30,54 @@
   box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.06);
 }
 
+
 .prof-card.low-match {
   background: #fafbfc;
   opacity: 0.8;
   border-color: #e8e8e8;
 }
+/* 表格样式 */
+.prof-card table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 16rpx;
+  table-layout: fixed; /* 固定布局，防止内容溢出 */
+}
 
+.prof-card th,
+.prof-card td {
+  border: 1px solid #e0e0e0;
+  padding: 12rpx;
+  text-align: left;
+  vertical-align: top;
+  word-break: break-word; /* 允许单词换行 */
+  overflow-wrap: break-word; /* 处理长单词或URL */
+}
+
+.prof-card th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 28rpx;
+}
+
+.prof-card td {
+  font-size: 26rpx;
+  color: #5a6c7d;
+  line-height: 1.4;
+}
+
+/* 确保内容不会溢出 */
+.prof-card{
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* 处理长文本 */
+.prof-card {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
 /* 右上角操作按钮 - 更轻盈的设计 */
 .corner-actions {
   position: absolute;

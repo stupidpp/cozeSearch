@@ -371,6 +371,7 @@ onShareAppMessage: function() {
       
       // 加载新用户的会话数据
       this.loadUserConversations();
+
       
       wx.showToast({
         title: '已切换用户',

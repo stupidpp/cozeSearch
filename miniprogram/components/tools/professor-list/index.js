@@ -68,18 +68,50 @@ Component({
       
       const self = this;
       this._onFavoriteChanged = function(eventData) {
-        const { profId, isFav } = eventData || {};
-        console.log('列表组件收到事件，更新:', profId, '->', isFav);
+        const {profId, uniqueKey, isFav } = eventData || {};
         
-        if (!profId) return;
+
+        console.log('列表组件收到事件，更新:', {profId,uniqueKey}, '->', isFav);
         
-        // ✅ 精准更新 favStatus
-        const newFavStatus = { ...self.data.favStatus, [profId]: isFav };
-        // ✅ 精准更新 candidates 中的 isFav
-        const newCandidates = self.data.candidates.map(prof => 
-          prof.profId === profId ? { ...prof, isFav: isFav } : prof
-        );
-        
+        let targetProfId, targetUniqueKey;
+  
+  // 情况1：同时提供了 profId 和 uniqueKey
+  if (profId && uniqueKey) {
+    targetProfId = profId;
+    targetUniqueKey = uniqueKey;
+  } 
+  // 情况2：只提供了 profId
+  else if (profId) {
+    const targetProf = self.data.candidates.find(prof => prof.profId === profId);
+    if (targetProf) {
+      targetProfId = profId;
+      targetUniqueKey = targetProf.uniqueKey;
+    }
+  } 
+  // 情况3：只提供了 uniqueKey
+  else if (uniqueKey) {
+    const targetProf = self.data.candidates.find(prof => prof.uniqueKey === uniqueKey);
+    if (targetProf) {
+      targetProfId = targetProf.profId;
+      targetUniqueKey = uniqueKey;
+    }
+  }
+  
+  if (!targetProfId || !targetUniqueKey) return;
+  
+  // 同时更新 favStatus 中 profId 和 uniqueKey 对应的状态
+  const newFavStatus = {
+    ...self.data.favStatus,
+    [targetProfId]: isFav,
+    [targetUniqueKey]: isFav
+  };
+  
+  // 更新 candidates 中的 isFav
+  const newCandidates = self.data.candidates.map(prof => 
+    (prof.profId === targetProfId || prof.uniqueKey === targetUniqueKey) 
+      ? { ...prof, isFav: isFav } 
+      : prof
+  );
         self.setData({
           favStatus: newFavStatus,
           candidates: newCandidates
@@ -114,7 +146,7 @@ Component({
         const result = Object.assign({}, c, {
           displayScore: self.normPercent(c.displayScore !== undefined ? c.displayScore : c.score),
           isFav: !!c.isFav,
-          uniqueKey: c.uniqueKey || ('prof_dec_' + Date.now() + '_' + index + '_' + Math.random().toString(36).substr(2, 6))
+          uniqueKey: c.uniqueKey || 'prof_' + Date.now() + '_' + index
         });
 
         return result;
@@ -158,10 +190,11 @@ Component({
               profId = `${profId}_${index}`; // 使用索引作为后缀，稳定
             }
             usedIds.add(profId);
-    
+            const uniqueKey = p.uniqueKey || 'prof_' + Date.now() + '_' + index;
+            console.log('p.uniqueKey是',p.uniqueKey);
             return {
               profId: profId, // ✅ 这是用于所有后续操作的唯一ID
-              uniqueKey: 'prof_' + Date.now() + '_' + index, // UI渲染用，允许随机
+              uniqueKey: uniqueKey, // UI渲染用，允许随机
               name: p.name || '',
               school: p.school || '',
               areas: Array.isArray(p.areas) ? p.areas : [],
@@ -176,7 +209,7 @@ Component({
               matchScore: p.matchScore || 0,
               tags: Array.isArray(p.tags) ? p.tags : [],
               // ✅ 3. 使用稳定的profId进行收藏判断
-              isFav: favSet.has(profId),
+              isFav: favSet.has(profId) || false,
             };
           });
           this.setData({ 
@@ -192,7 +225,9 @@ Component({
 buildFavStatus: function(professors) {
   const favStatus = {};
   professors.forEach(prof => {
+    favStatus[prof.uniqueKey] = prof.isFav || false;
     favStatus[prof.profId] = prof.isFav || false;
+
   });
   return favStatus;
 },
@@ -215,13 +250,17 @@ onFavorite: function(e) {
   });
   
   const newFavState = newCandidates[index].isFav;
-  
+  const uniqueKey = newCandidates[index].uniqueKey;
+  console.log('uniqueKey定义为：',uniqueKey);
   // 同时更新 favStatus 对象
   const newFavStatus = {
     ...this.data.favStatus, // 保留其他卡片的收藏状态
-    [profId]: newFavState   // 更新当前卡片的收藏状态
+    [uniqueKey]: newFavState,   // 更新当前卡片的收藏状态
+    [profId]: newFavState  // 更新 profId 对应的状态
+
   };
-  
+  console.log('profId是',profId);
+
   // 强制更新UI
   this.setData({ 
     candidates: newCandidates,
@@ -236,13 +275,13 @@ onFavorite: function(e) {
   // 处理本地存储和云端同步
   try {
     //const existed = wx.getStorageSync('favorites') || [];
-    //const favMap = new Map(existed.map(function(x) { return [x.profId, x]; }));
+    //const favMap = new Map(existed.map(function(x) { return [x.uniqueKey, x]; }));
     const existed = wx.getStorageSync(favoritesKey) || [];
-    const favMap = new Map(existed.map(function(x) { return [x.profId, x]; }));
+    const favMap = new Map(existed.map(function(x) { return [x.uniqueKey, x]; }));
     if (newFavState) {
       // 添加到收藏
       const profData = Object.assign({}, newCandidates[index], { updatedAt: Date.now() });
-      favMap.set(profId, profData);
+      favMap.set(uniqueKey, profData);
       
       // 云端添加
       wx.cloud.callFunction({ 
@@ -254,14 +293,14 @@ onFavorite: function(e) {
       }).catch(err => console.error('Cloud add failed:', err));
     } else {
       // 从收藏移除
-      favMap.delete(profId);
+      favMap.delete(uniqueKey);
       
       // 云端移除
       wx.cloud.callFunction({ 
         name: 'favorites', 
         data: { 
           action: 'remove', 
-          profId: profId 
+          uniqueKey: uniqueKey 
         } 
       }).catch(err => console.error('Cloud remove failed:', err));
     }
@@ -278,7 +317,7 @@ onFavorite: function(e) {
   });
   
   // 发送全局事件通知其他组件更新  
-  wx.$emit && wx.$emit('favoriteChanged', { profId, isFav: newFavState });
+  wx.$emit && wx.$emit('favoriteChanged', { uniqueKey: uniqueKey,profId:profId, isFav: newFavState });
 },
     
     // 点击邮箱 - 发送邮件
